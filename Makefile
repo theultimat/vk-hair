@@ -1,3 +1,5 @@
+include Traces.mk
+
 SOURCE_ROOT := src
 BUILD_ROOT := build
 
@@ -7,11 +9,11 @@ DEPENDS := $(addsuffix .d,$(OBJECTS))
 
 EXECUTABLE := $(BUILD_ROOT)/bin/vk-hair.out
 
-PACKAGES := vulkan glfw3 glm
+PACKAGES := vulkan glfw3 glm fmt
 
 CXX := clang++
 CXXFLAGS := -Wall -Werror -Wextra -std=c++17 -MD -MP -g -O3  $(shell pkg-config --cflags $(PACKAGES))
-CXXDEFS := -DGLM_FORCE_RADIANS -DGLM_FORCE_DEPTH_ZERO_TO_ONE
+CXXDEFS := -DGLM_FORCE_RADIANS -DGLM_FORCE_DEPTH_ZERO_TO_ONE -DFMT_ENFORCE_COMPILE_STRING
 LDFLAGS := $(shell pkg-config --libs $(PACKAGES))
 
 all: $(OBJECTS) $(EXECUTABLE)

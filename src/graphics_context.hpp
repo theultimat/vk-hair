@@ -44,11 +44,20 @@ namespace vhs
         void check_validation_layers();
         void check_instance_extensions();
 
+        // Physical and logical device management.
+        void select_physical_device();
+
         // Vulkan handles.
         VkInstance instance_ = VK_NULL_HANDLE;
         VkDebugUtilsMessengerEXT debug_messenger_ = VK_NULL_HANDLE;
         VkPhysicalDevice physical_device_ = VK_NULL_HANDLE;
         VkDevice device_ = VK_NULL_HANDLE;
+
+        // Physical device information.
+        VkPhysicalDeviceProperties physical_device_properties_ = { };
+        VkPhysicalDeviceFeatures physical_device_features_ = { };
+
+        uint32_t graphics_queue_family_ = -1;
     };
 }
 

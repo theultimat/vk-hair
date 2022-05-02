@@ -1,6 +1,7 @@
 #include <cstring>
 
 #include <algorithm>
+#include <optional>
 #include <vector>
 
 #include "assert.hpp"
@@ -46,8 +47,8 @@ namespace vhs
         VHS_TRACE(GRAPHICS_CONTEXT, "Creating graphics context.");
 
         create_instance();
+        select_physical_device();
 
-        (void)physical_device_;
         (void)device_;
     }
 
@@ -161,5 +162,62 @@ namespace vhs
 
             VHS_ASSERT(it != std::end(supported_extensions), "VkInstance extension '{}' is not supported!", name);
         }
+    }
+
+
+    // Physical and logical device management.
+    void GraphicsContext::select_physical_device()
+    {
+        VHS_TRACE(GRAPHICS_CONTEXT, "Selecting physical device.");
+
+        uint32_t num_devices = 0;
+        vkEnumeratePhysicalDevices(instance_, &num_devices, nullptr);
+
+        VHS_ASSERT(num_devices, "No physical devices supporting Vulkan found!");
+
+        std::vector<VkPhysicalDevice> devices(num_devices);
+        vkEnumeratePhysicalDevices(instance_, &num_devices, devices.data());
+
+        bool device_found = false;
+
+        for (auto device : devices)
+        {
+            vkGetPhysicalDeviceProperties(device, &physical_device_properties_);
+            vkGetPhysicalDeviceFeatures(device, &physical_device_features_);
+
+            // Check all the features we need are supported.
+            if (!physical_device_features_.tessellationShader)
+                continue;
+
+            // Make sure we have all the required queues etc.
+            uint32_t num_queue_families = 0;
+            vkGetPhysicalDeviceQueueFamilyProperties(device, &num_queue_families, nullptr);
+
+            std::vector<VkQueueFamilyProperties> queue_families(num_queue_families);
+            vkGetPhysicalDeviceQueueFamilyProperties(device, &num_queue_families, queue_families.data());
+
+            std::optional<uint32_t> graphics_queue_family;
+
+            for (uint32_t i = 0; i < num_queue_families; ++i)
+            {
+                const auto& queue_family = queue_families.at(i);
+
+                if (!graphics_queue_family && (queue_family.queueFlags & VK_QUEUE_GRAPHICS_BIT))
+                    graphics_queue_family = i;
+            }
+
+            if (!graphics_queue_family)
+                continue;
+
+            graphics_queue_family_ = *graphics_queue_family;
+            physical_device_ = device;
+
+            device_found = true;
+            break;
+        }
+
+        VHS_ASSERT(device_found, "Failed to find suitable physical device!");
+        VHS_TRACE(GRAPHICS_CONTEXT, "Selected device: {}.", physical_device_properties_.deviceName);
+        VHS_TRACE(GRAPHICS_CONTEXT, "Graphics queue family found at index {}.", graphics_queue_family_);
     }
 }

@@ -1,7 +1,7 @@
 #ifndef VHS_GRAPHICS_CONTEXT_HPP
 #define VHS_GRAPHICS_CONTEXT_HPP
 
-#include <vulkan/vulkan.h>
+#include <GLFW/glfw3.h>
 
 #include "assert.hpp"
 
@@ -52,19 +52,32 @@ namespace vhs
 
         bool check_device_extensions(VkPhysicalDevice device) const;
 
+        // Window and surface management.
+        void create_window();
+        void destroy_window();
+
         // Vulkan handles.
         VkInstance instance_ = VK_NULL_HANDLE;
         VkDebugUtilsMessengerEXT debug_messenger_ = VK_NULL_HANDLE;
         VkPhysicalDevice physical_device_ = VK_NULL_HANDLE;
         VkDevice device_ = VK_NULL_HANDLE;
+        VkSurfaceKHR surface_ = VK_NULL_HANDLE;
 
         VkQueue graphics_queue_ = VK_NULL_HANDLE;
+        VkQueue present_queue_ = VK_NULL_HANDLE;
 
         // Physical device information.
         VkPhysicalDeviceProperties physical_device_properties_ = { };
         VkPhysicalDeviceFeatures physical_device_features_ = { };
 
         uint32_t graphics_queue_family_ = -1;
+        uint32_t present_queue_family_ = -1;
+
+        // Graphics window.
+        GLFWwindow* window_ = nullptr;
+
+        uint32_t window_width_ = -1;
+        uint32_t window_height_ = - 1;
     };
 }
 

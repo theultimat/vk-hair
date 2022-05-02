@@ -3,12 +3,11 @@
 
 #include <algorithm>
 #include <optional>
+#include <unordered_set>
 #include <vector>
 
 #include <fmt/format.h>
-#include <GLFW/glfw3.h>
 
-#include "assert.hpp"
 #include "graphics_context.hpp"
 #include "trace.hpp"
 
@@ -44,6 +43,11 @@ namespace vhs
     };
 
 
+    // Window and surface configuration.
+    static const uint32_t WINDOW_WIDTH = 1280;
+    static const uint32_t WINDOW_HEIGHT = 720;
+
+
     // Debug callback for VkDebugUtilsMessengerEXT.
     static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
         VkDebugUtilsMessageTypeFlagsEXT type, const VkDebugUtilsMessengerCallbackDataEXT* callback_data, void* user_data)
@@ -72,6 +76,7 @@ namespace vhs
         glfwInit();
 
         create_instance();
+        create_window();
         select_physical_device();
         create_device();
     }
@@ -79,6 +84,7 @@ namespace vhs
     GraphicsContext::~GraphicsContext()
     {
         destroy_device();
+        destroy_window();
         destroy_instance();
 
         glfwTerminate();
@@ -231,7 +237,7 @@ namespace vhs
             std::vector<VkQueueFamilyProperties> queue_families(num_queue_families);
             vkGetPhysicalDeviceQueueFamilyProperties(device, &num_queue_families, queue_families.data());
 
-            std::optional<uint32_t> graphics_queue_family;
+            std::optional<uint32_t> graphics_queue_family, present_queue_family;
 
             for (uint32_t i = 0; i < num_queue_families; ++i)
             {
@@ -239,12 +245,22 @@ namespace vhs
 
                 if (!graphics_queue_family && (queue_family.queueFlags & VK_QUEUE_GRAPHICS_BIT))
                     graphics_queue_family = i;
+
+                if (!present_queue_family)
+                {
+                    VkBool32 present_support = VK_FALSE;
+                    VHS_CHECK_VK(vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface_, &present_support));
+
+                    if (present_support)
+                        present_queue_family = i;
+                }
             }
 
-            if (!graphics_queue_family)
+            if (!graphics_queue_family || !present_queue_family)
                 continue;
 
             graphics_queue_family_ = *graphics_queue_family;
+            present_queue_family_ = *present_queue_family;
             physical_device_ = device;
 
             device_found = true;
@@ -254,6 +270,7 @@ namespace vhs
         VHS_ASSERT(device_found, "Failed to find suitable physical device!");
         VHS_TRACE(GRAPHICS_CONTEXT, "Selected device: {}.", physical_device_properties_.deviceName);
         VHS_TRACE(GRAPHICS_CONTEXT, "Graphics queue family found at index {}.", graphics_queue_family_);
+        VHS_TRACE(GRAPHICS_CONTEXT, "Present queue family found at index {}.", present_queue_family_);
     }
 
 
@@ -262,13 +279,21 @@ namespace vhs
         VHS_TRACE(GRAPHICS_CONTEXT, "Creating VkDevice with extensions: {}.", fmt::join(DEVICE_EXTENSIONS, ", "));
 
         const float queue_priority = 1.0f;
+        const std::unordered_set<uint32_t> queue_families { graphics_queue_family_, present_queue_family_ };
 
-        VkDeviceQueueCreateInfo queue_create_info { };
+        std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
 
-        queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-        queue_create_info.queueFamilyIndex = graphics_queue_family_;
-        queue_create_info.queueCount = 1;
-        queue_create_info.pQueuePriorities = &queue_priority;
+        for (auto family : queue_families)
+        {
+            VkDeviceQueueCreateInfo queue_create_info { };
+
+            queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+            queue_create_info.queueFamilyIndex = family;
+            queue_create_info.queueCount = 1;
+            queue_create_info.pQueuePriorities = &queue_priority;
+
+            queue_create_infos.push_back(queue_create_info);
+        }
 
         VkPhysicalDeviceFeatures features { };
 
@@ -277,8 +302,8 @@ namespace vhs
         VkDeviceCreateInfo create_info { };
 
         create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-        create_info.pQueueCreateInfos = &queue_create_info;
-        create_info.queueCreateInfoCount = 1;
+        create_info.pQueueCreateInfos = queue_create_infos.data();
+        create_info.queueCreateInfoCount = queue_create_infos.size();
         create_info.pEnabledFeatures = &features;
         create_info.enabledLayerCount = std::size(VALIDATION_LAYERS);
         create_info.ppEnabledLayerNames = VALIDATION_LAYERS;
@@ -290,6 +315,7 @@ namespace vhs
         VHS_CHECK_VK(vkCreateDevice(physical_device_, &create_info, nullptr, &device_));
 
         vkGetDeviceQueue(device_, graphics_queue_family_, 0, &graphics_queue_);
+        vkGetDeviceQueue(device_, present_queue_family_, 0, &present_queue_);
     }
 
     void GraphicsContext::destroy_device()
@@ -322,5 +348,43 @@ namespace vhs
         }
 
         return true;
+    }
+
+
+    // Window and surface management.
+    void GraphicsContext::create_window()
+    {
+        VHS_TRACE(GRAPHICS_CONTEXT, "Creating window.");
+
+        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+        glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
+
+        window_ = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "vk-hair", nullptr, nullptr);
+
+        int width, height;
+        glfwGetFramebufferSize(window_, &width, &height);
+
+        window_width_ = width;
+        window_height_ = height;
+
+        VHS_TRACE(GRAPHICS_CONTEXT, "Creating VkSurfaceKHR.");
+
+        VHS_CHECK_VK(glfwCreateWindowSurface(instance_, window_, nullptr, &surface_));
+    }
+
+    void GraphicsContext::destroy_window()
+    {
+        if (surface_)
+        {
+            VHS_TRACE(GRAPHICS_CONTEXT, "Destroying VkSurfaceKHR.");
+            vkDestroySurfaceKHR(instance_, surface_, nullptr);
+        }
+
+        if (window_)
+        {
+            VHS_TRACE(GRAPHICS_CONTEXT, "Destroying window.");
+            glfwDestroyWindow(window_);
+        }
     }
 }

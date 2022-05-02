@@ -1,0 +1,13 @@
+*.d
+*.o
+*.out
+*.exe
+*.so
+*.a
+*.lib
+*.dll
+*.sw?
+build
+__pycache__
+*.pyc
+.DS_Store

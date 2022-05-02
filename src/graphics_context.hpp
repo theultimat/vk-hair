@@ -41,17 +41,24 @@ namespace vhs
         void create_instance();
         void destroy_instance();
 
-        void check_validation_layers();
-        void check_instance_extensions();
+        void check_validation_layers() const;
+        void check_instance_extensions(const std::vector<const char*>& names) const;
 
         // Physical and logical device management.
         void select_physical_device();
+
+        void create_device();
+        void destroy_device();
+
+        bool check_device_extensions(VkPhysicalDevice device) const;
 
         // Vulkan handles.
         VkInstance instance_ = VK_NULL_HANDLE;
         VkDebugUtilsMessengerEXT debug_messenger_ = VK_NULL_HANDLE;
         VkPhysicalDevice physical_device_ = VK_NULL_HANDLE;
         VkDevice device_ = VK_NULL_HANDLE;
+
+        VkQueue graphics_queue_ = VK_NULL_HANDLE;
 
         // Physical device information.
         VkPhysicalDeviceProperties physical_device_properties_ = { };

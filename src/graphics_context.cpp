@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <optional>
 #include <unordered_set>
-#include <vector>
 
 #include <fmt/format.h>
 
@@ -79,10 +78,12 @@ namespace vhs
         create_window();
         select_physical_device();
         create_device();
+        create_swapchain();
     }
 
     GraphicsContext::~GraphicsContext()
     {
+        destroy_swapchain();
         destroy_device();
         destroy_window();
         destroy_instance();
@@ -227,6 +228,8 @@ namespace vhs
             // Check all the features we need are supported.
             if (!check_device_extensions(device))
                 continue;
+            if (!check_swapchain_support(device))
+                continue;
             if (!physical_device_features_.tessellationShader)
                 continue;
 
@@ -271,6 +274,8 @@ namespace vhs
         VHS_TRACE(GRAPHICS_CONTEXT, "Selected device: {}.", physical_device_properties_.deviceName);
         VHS_TRACE(GRAPHICS_CONTEXT, "Graphics queue family found at index {}.", graphics_queue_family_);
         VHS_TRACE(GRAPHICS_CONTEXT, "Present queue family found at index {}.", present_queue_family_);
+        VHS_TRACE(GRAPHICS_CONTEXT, "Prensent mode is {}.", (present_mode_ == VK_PRESENT_MODE_MAILBOX_KHR) ?
+            "VK_PRESENT_MODE_MAILBOX_KHR" : "VK_PRESENT_MODE_FIFO_KHR");
     }
 
 
@@ -385,6 +390,131 @@ namespace vhs
         {
             VHS_TRACE(GRAPHICS_CONTEXT, "Destroying window.");
             glfwDestroyWindow(window_);
+        }
+    }
+
+
+    // Swapchain.
+    bool GraphicsContext::check_swapchain_support(VkPhysicalDevice device)
+    {
+        // Check the extents are correct.
+        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface_, &surface_capabilities_);
+        if (surface_capabilities_.currentExtent.width != window_width_ || surface_capabilities_.currentExtent.height != window_height_)
+            return false;
+
+        surface_extent_.width = window_width_;
+        surface_extent_.height = window_height_;
+
+        // Check the format we want to use is supported.
+        uint32_t num_formats = 0;
+        vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface_, &num_formats, nullptr);
+
+        std::vector<VkSurfaceFormatKHR> formats(num_formats);
+        vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface_, &num_formats, formats.data());
+
+        const auto format_it = std::find_if(std::begin(formats), std::end(formats), [=](const VkSurfaceFormatKHR& format)
+        {
+            return format.format == surface_format_.format && format.colorSpace == surface_format_.colorSpace;
+        });
+
+        if (format_it == std::end(formats))
+            return false;
+
+        // Check one of the present modes we want to use exists. Ideally we'd use mailbox all the time but support
+        // is surprisingly lacking if not on win32.
+        uint32_t num_presents = 0;
+        vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface_, &num_presents, nullptr);
+
+        std::vector<VkPresentModeKHR> presents(num_presents);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface_, &num_presents, presents.data());
+
+        const auto present_it = std::find(std::begin(presents), std::end(presents), VK_PRESENT_MODE_MAILBOX_KHR);
+        present_mode_ = (present_it == std::end(presents)) ? VK_PRESENT_MODE_FIFO_KHR : *present_it;
+
+        return true;
+    }
+
+
+    void GraphicsContext::create_swapchain()
+    {
+        VHS_TRACE(GRAPHICS_CONTEXT, "Creating VkSwapchainKHR.");
+
+        num_swapchain_images_ = surface_capabilities_.minImageCount + 1;
+        if (num_swapchain_images_ > surface_capabilities_.maxImageCount)
+            num_swapchain_images_ = surface_capabilities_.maxImageCount;
+
+        const uint32_t queue_families[] = { graphics_queue_family_, present_queue_family_ };
+
+        VkSwapchainCreateInfoKHR create_info { };
+
+        create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+        create_info.surface = surface_;
+        create_info.minImageCount = num_swapchain_images_;
+        create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        create_info.imageFormat = surface_format_.format;
+        create_info.imageColorSpace = surface_format_.colorSpace;
+        create_info.imageExtent = surface_extent_;
+        create_info.imageArrayLayers = 1;
+        create_info.presentMode = present_mode_;
+        create_info.preTransform = surface_capabilities_.currentTransform;
+        create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+        create_info.clipped = VK_TRUE;
+
+        if (graphics_queue_family_ != present_queue_family_)
+        {
+            create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+            create_info.queueFamilyIndexCount = std::size(queue_families);
+            create_info.pQueueFamilyIndices = queue_families;
+        }
+        else
+        {
+            create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        }
+
+        VHS_CHECK_VK(vkCreateSwapchainKHR(device_, &create_info, nullptr, &swapchain_));
+        VHS_CHECK_VK(vkGetSwapchainImagesKHR(device_, swapchain_, &num_swapchain_images_, nullptr));
+        VHS_TRACE(GRAPHICS_CONTEXT, "Swapchain will use {} images.", num_swapchain_images_);
+
+        swapchain_images_.resize(num_swapchain_images_);
+        VHS_CHECK_VK(vkGetSwapchainImagesKHR(device_, swapchain_, &num_swapchain_images_, swapchain_images_.data()));
+
+        VHS_TRACE(GRAPHICS_CONTEXT, "Creating swapchain VkImageViews.");
+
+        swapchain_image_views_.resize(num_swapchain_images_);
+        for (uint32_t i = 0; i < num_swapchain_images_; ++i)
+        {
+            VkImageViewCreateInfo view_create_info { };
+
+            view_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+            view_create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+            view_create_info.image = swapchain_images_.at(i);
+            view_create_info.format = surface_format_.format;
+            view_create_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+            view_create_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+            view_create_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+            view_create_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+            view_create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            view_create_info.subresourceRange.levelCount = 1;
+            view_create_info.subresourceRange.layerCount = 1;
+
+            VHS_CHECK_VK(vkCreateImageView(device_, &view_create_info, nullptr, &swapchain_image_views_.at(i)));
+        }
+    }
+
+    void GraphicsContext::destroy_swapchain()
+    {
+        if (swapchain_image_views_.size())
+        {
+            VHS_TRACE(GRAPHICS_CONTEXT, "Destroying swapchain VkImageViews.");
+
+            for (auto view : swapchain_image_views_)
+                vkDestroyImageView(device_, view, nullptr);
+        }
+
+        if (swapchain_)
+        {
+            VHS_TRACE(GRAPHICS_CONTEXT, "Destroying VkSwapchainKHR.");
+            vkDestroySwapchainKHR(device_, swapchain_, nullptr);
         }
     }
 }

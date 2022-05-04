@@ -1,6 +1,8 @@
 #ifndef VHS_GRAPHICS_CONTEXT_HPP
 #define VHS_GRAPHICS_CONTEXT_HPP
 
+#include <vector>
+
 #include <GLFW/glfw3.h>
 
 #include "assert.hpp"
@@ -63,12 +65,19 @@ namespace vhs
         void create_window();
         void destroy_window();
 
+        // Swapchain support.
+        bool check_swapchain_support(VkPhysicalDevice device);
+
+        void create_swapchain();
+        void destroy_swapchain();
+
         // Vulkan handles.
         VkInstance instance_ = VK_NULL_HANDLE;
         VkDebugUtilsMessengerEXT debug_messenger_ = VK_NULL_HANDLE;
         VkPhysicalDevice physical_device_ = VK_NULL_HANDLE;
         VkDevice device_ = VK_NULL_HANDLE;
         VkSurfaceKHR surface_ = VK_NULL_HANDLE;
+        VkSwapchainKHR swapchain_ = VK_NULL_HANDLE;
 
         VkQueue graphics_queue_ = VK_NULL_HANDLE;
         VkQueue present_queue_ = VK_NULL_HANDLE;
@@ -85,6 +94,17 @@ namespace vhs
 
         uint32_t window_width_ = -1;
         uint32_t window_height_ = - 1;
+
+        // Swapchain properties.
+        VkSurfaceCapabilitiesKHR surface_capabilities_;
+        VkSurfaceFormatKHR surface_format_ = { VK_FORMAT_B8G8R8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR };
+        VkPresentModeKHR present_mode_;
+        VkExtent2D surface_extent_;
+
+        std::vector<VkImage> swapchain_images_;
+        std::vector<VkImageView> swapchain_image_views_;
+
+        uint32_t num_swapchain_images_ = -1;
     };
 }
 

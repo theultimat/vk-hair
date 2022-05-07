@@ -38,6 +38,14 @@ namespace vhs
             return fn;
         }
 
+
+        // Access Vulkan handles.
+        VkDevice vk_device() const { return device_; }
+
+
+        // Other accessors.
+        uint32_t graphics_queue_family() const { return graphics_queue_family_; }
+
     private:
         // VkInstance management.
         void create_instance();

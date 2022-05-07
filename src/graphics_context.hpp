@@ -6,8 +6,6 @@
 #include <GLFW/glfw3.h>
 
 #include "assert.hpp"
-#include "graphics_device.hpp"
-#include "graphics_window.hpp"
 
 
 // Convenience macro to save typing the function name twice.
@@ -39,11 +37,6 @@ namespace vhs
             VHS_ASSERT(fn, "Failed to find Vulkan function '{}'!", name);
             return fn;
         }
-
-
-        // Get the graphics window/device wrapper.
-        GraphicsDevice graphics_device() const { return { device_, graphics_queue_, present_queue_ }; }
-        GraphicsWindow graphics_window() const { return { window_ }; }
 
     private:
         // VkInstance management.

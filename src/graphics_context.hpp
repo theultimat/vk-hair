@@ -14,6 +14,9 @@
 
 namespace vhs
 {
+    class Framebuffer;
+    class RenderPass;
+
     // Maintains the Vulkan context for rendering and compute.
     class GraphicsContext
     {
@@ -37,6 +40,10 @@ namespace vhs
             VHS_ASSERT(fn, "Failed to find Vulkan function '{}'!", name);
             return fn;
         }
+
+
+        // Create framebuffers for the swapchain.
+        std::vector<Framebuffer> create_swapchain_framebuffers(RenderPass& pass);
 
 
         // Access Vulkan handles.

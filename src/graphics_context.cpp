@@ -7,7 +7,9 @@
 
 #include <fmt/format.h>
 
+#include "framebuffer.hpp"
 #include "graphics_context.hpp"
+#include "render_pass.hpp"
 #include "trace.hpp"
 
 
@@ -516,5 +518,27 @@ namespace vhs
             VHS_TRACE(GRAPHICS_CONTEXT, "Destroying VkSwapchainKHR.");
             vkDestroySwapchainKHR(device_, swapchain_, nullptr);
         }
+    }
+
+
+    std::vector<Framebuffer> GraphicsContext::create_swapchain_framebuffers(RenderPass& pass)
+    {
+        VHS_TRACE(GRAPHICS_CONTEXT, "Creating {} framebuffers for swapchain images using render pass '{}'.", num_swapchain_images_, pass.name());
+
+        std::vector<Framebuffer> out;
+        out.reserve(num_swapchain_images_);
+
+        for (uint32_t i = 0; i < num_swapchain_images_; ++i)
+        {
+            FramebufferConfig config;
+
+            config.attachments.push_back(swapchain_image_views_.at(i));
+            config.width = window_width_;
+            config.height = window_height_;
+
+            out.emplace_back("SwapchainFramebuffer" + std::to_string(i), *this, pass, config);
+        }
+
+        return out;
     }
 }

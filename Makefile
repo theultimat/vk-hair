@@ -32,7 +32,7 @@ run: all
 	(cd $(dir $(EXECUTABLE)); ./$(notdir $(EXECUTABLE)) $(ARGS))
 
 debug: all
-	(cd $(dir $(EXECUTABLE)); gdb -q --args ./$(notdir $(EXECUTABLE)) $(ARGS))
+	(cd $(dir $(EXECUTABLE)); lldb ./$(notdir $(EXECUTABLE)) -- $(ARGS))
 
 clean:
 	rm -rf $(BUILD_ROOT)

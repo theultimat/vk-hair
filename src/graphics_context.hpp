@@ -35,6 +35,23 @@ namespace vhs
         std::unique_ptr<Semaphore> render_finished_semaphore;
     };
 
+    // Structures for queue submission and presentation.
+    struct QueueSubmitConfig
+    {
+        // TODO Stack based vector to avoid memory allocations?
+        std::vector<VkSemaphore> wait_semaphores;
+        std::vector<VkSemaphore> signal_semaphores;
+        std::vector<VkCommandBuffer> command_buffers;
+        std::vector<VkPipelineStageFlags> wait_stages;
+        VkFence signal_fence = VK_NULL_HANDLE;
+    };
+
+    struct QueuePresentConfig
+    {
+        std::vector<VkSemaphore> wait_semaphores;
+        uint32_t swapchain_image_index;
+    };
+
     // Maintains the Vulkan context for rendering and compute.
     class GraphicsContext
     {
@@ -63,6 +80,21 @@ namespace vhs
         // Create framebuffers for the swapchain.
         std::vector<Framebuffer> create_swapchain_framebuffers(RenderPass& pass);
 
+        // Start and end the commands for a frame.
+        FrameData& begin_frame();
+        void end_frame();
+
+        // Queue submission and presentation.
+        void queue_submit(VkQueue queue, const QueueSubmitConfig& config) const;
+        void queue_present(VkQueue queue, const QueuePresentConfig& config) const;
+
+        // Window functions.
+        bool is_window_open() const { return !glfwWindowShouldClose(window_); }
+        void poll_window_events() const { glfwPollEvents(); }
+
+        // Wait for the device to become idle.
+        void wait_idle() const { VHS_CHECK_VK(vkDeviceWaitIdle(device_)); }
+
 
         // Access Vulkan handles.
         VkDevice vk_device() const { return device_; }
@@ -70,7 +102,9 @@ namespace vhs
 
         // Other accessors.
         uint32_t graphics_queue_family() const { return graphics_queue_family_; }
+
         VkSurfaceFormatKHR swapchain_image_format() const { return surface_format_; }
+        VkRect2D viewport() const { return { { 0, 0 }, surface_extent_ }; }
 
     private:
         // VkInstance management.
@@ -97,7 +131,6 @@ namespace vhs
 
         void create_swapchain();
         void destroy_swapchain();
-
 
         // Per-frame data.
         void create_frames();
@@ -141,6 +174,8 @@ namespace vhs
 
         // Per-frame structures.
         std::vector<FrameData> frames_;
+        std::vector<Fence*> swapchain_image_fences_;
+        uint32_t current_frame_ = 0;
     };
 }
 

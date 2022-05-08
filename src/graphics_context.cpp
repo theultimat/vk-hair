@@ -94,6 +94,10 @@ namespace vhs
 
     GraphicsContext::~GraphicsContext()
     {
+        VHS_TRACE(GRAPHICS_CONTEXT, "Destroying graphics context.");
+
+        wait_idle();
+
         destroy_frames();
         destroy_swapchain();
         destroy_device();
@@ -559,6 +563,7 @@ namespace vhs
         VHS_TRACE(GRAPHICS_CONTEXT, "Creating per-frame data for {} frames.", NUM_ACTIVE_FRAMES);
 
         frames_.reserve(NUM_ACTIVE_FRAMES);
+        swapchain_image_fences_.resize(num_swapchain_images_, nullptr);
 
         for (uint32_t i = 0; i < NUM_ACTIVE_FRAMES; ++i)
         {
@@ -589,5 +594,92 @@ namespace vhs
             frame.command_pool->free(frame.command_buffers.data(), frame.command_buffers.size());
 
         frames_.clear();
+    }
+
+
+    FrameData& GraphicsContext::begin_frame()
+    {
+        auto& data = frames_[current_frame_];
+
+        // Wait for the frame to be ready.
+        data.render_fence->wait();
+
+        // Get the next swapchain image and update the image index in frame data.
+        VHS_CHECK_VK(vkAcquireNextImageKHR(device_, swapchain_, UINT64_MAX, data.image_available_semaphore->vk_semaphore(),
+            VK_NULL_HANDLE, &data.swapchain_image_index));
+
+        // If this image is already in use then wait for it to become available.
+        if (swapchain_image_fences_[data.swapchain_image_index])
+            swapchain_image_fences_[data.swapchain_image_index]->wait();
+        swapchain_image_fences_[data.swapchain_image_index] = data.render_fence.get();
+
+        // Reset the fence and command buffers.
+        data.render_fence->reset();
+        data.command_pool->reset();
+
+        return data;
+    }
+
+    void GraphicsContext::end_frame()
+    {
+        auto& data = frames_[current_frame_];
+
+        // Submit the graphics commands.
+        QueueSubmitConfig submit;
+
+        submit.wait_semaphores.push_back(data.image_available_semaphore->vk_semaphore());
+        submit.wait_stages.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+        submit.signal_semaphores.push_back(data.render_finished_semaphore->vk_semaphore());
+        submit.signal_fence = data.render_fence->vk_fence();
+        submit.command_buffers = data.command_buffers;
+
+        queue_submit(graphics_queue_, submit);
+
+        // Present the image.
+        QueuePresentConfig present;
+
+        present.swapchain_image_index = data.swapchain_image_index;
+        present.wait_semaphores.push_back(data.render_finished_semaphore->vk_semaphore());
+
+        queue_present(present_queue_, present);
+
+        // Move to the next frame.
+        current_frame_ = (current_frame_ + 1) % frames_.size();
+    }
+
+
+    // Queue submission.
+    void GraphicsContext::queue_submit(VkQueue queue, const QueueSubmitConfig& config) const
+    {
+        VHS_TRACE(GRAPHICS_CONTEXT, "Submitting {} command buffers to queue {}.", config.command_buffers.size(), fmt::ptr(queue));
+
+        VkSubmitInfo submit_info { };
+
+        submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submit_info.waitSemaphoreCount = config.wait_semaphores.size();
+        submit_info.pWaitSemaphores = config.wait_semaphores.data();
+        submit_info.signalSemaphoreCount = config.signal_semaphores.size();
+        submit_info.pSignalSemaphores = config.signal_semaphores.data();
+        submit_info.pWaitDstStageMask = config.wait_stages.data();
+        submit_info.commandBufferCount = config.command_buffers.size();
+        submit_info.pCommandBuffers = config.command_buffers.data();
+
+        VHS_CHECK_VK(vkQueueSubmit(queue, 1, &submit_info, config.signal_fence));
+    }
+
+    void GraphicsContext::queue_present(VkQueue queue, const QueuePresentConfig& config) const
+    {
+        VHS_TRACE(GRAPHICS_CONTEXT, "Presenting image {} from swapchain.", config.swapchain_image_index);
+
+        VkPresentInfoKHR present_info { };
+
+        present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+        present_info.swapchainCount = 1;
+        present_info.pSwapchains = &swapchain_;
+        present_info.pImageIndices = &config.swapchain_image_index;
+        present_info.waitSemaphoreCount = config.wait_semaphores.size();
+        present_info.pWaitSemaphores = config.wait_semaphores.data();
+
+        VHS_CHECK_VK(vkQueuePresentKHR(queue, &present_info));
     }
 }

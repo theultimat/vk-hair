@@ -32,6 +32,9 @@ namespace vhs
         void wait(uint64_t timeout = UINT64_MAX);
         void reset();
 
+
+        VkFence vk_fence() const { return fence_; }
+
     private:
         std::string name_;
         GraphicsContext* context_ = nullptr;

@@ -27,6 +27,9 @@ namespace vhs
 
         Semaphore& operator=(Semaphore&& other);
 
+
+        VkSemaphore vk_semaphore() const { return semaphore_; }
+
     private:
         std::string name_;
         GraphicsContext* context_ = nullptr;

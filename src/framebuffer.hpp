@@ -36,6 +36,9 @@ namespace vhs
 
         Framebuffer& operator=(Framebuffer&& other);
 
+
+        VkFramebuffer vk_framebuffer() const { return framebuffer_; }
+
     private:
         std::string name_;
         GraphicsContext* context_ = nullptr;

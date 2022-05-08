@@ -95,6 +95,10 @@ namespace vhs
 
         RenderPass& operator=(RenderPass&& other);
 
+
+        const std::string& name() const { return name_; }
+        VkRenderPass vk_render_pass() const { return pass_; }
+
     private:
         std::string name_;
         GraphicsContext* context_ = nullptr;

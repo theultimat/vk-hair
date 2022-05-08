@@ -7,9 +7,12 @@
 
 #include <fmt/format.h>
 
+#include "command_pool.hpp"
+#include "fence.hpp"
 #include "framebuffer.hpp"
 #include "graphics_context.hpp"
 #include "render_pass.hpp"
+#include "semaphore.hpp"
 #include "trace.hpp"
 
 
@@ -49,6 +52,11 @@ namespace vhs
     static const uint32_t WINDOW_HEIGHT = 720;
 
 
+    // Per-frame data configuration.
+    static const uint32_t NUM_ACTIVE_FRAMES = 2;
+    static const uint32_t NUM_COMMAND_BUFFERS_PER_FRAME = 1;
+
+
     // Debug callback for VkDebugUtilsMessengerEXT.
     static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
         VkDebugUtilsMessageTypeFlagsEXT type, const VkDebugUtilsMessengerCallbackDataEXT* callback_data, void* user_data)
@@ -81,10 +89,12 @@ namespace vhs
         select_physical_device();
         create_device();
         create_swapchain();
+        create_frames();
     }
 
     GraphicsContext::~GraphicsContext()
     {
+        destroy_frames();
         destroy_swapchain();
         destroy_device();
         destroy_window();
@@ -540,5 +550,44 @@ namespace vhs
         }
 
         return out;
+    }
+
+
+    // Per-frame data management.
+    void GraphicsContext::create_frames()
+    {
+        VHS_TRACE(GRAPHICS_CONTEXT, "Creating per-frame data for {} frames.", NUM_ACTIVE_FRAMES);
+
+        frames_.reserve(NUM_ACTIVE_FRAMES);
+
+        for (uint32_t i = 0; i < NUM_ACTIVE_FRAMES; ++i)
+        {
+            FrameData frame;
+
+            frame.frame_index = i;
+            frame.swapchain_image_index = -1;
+
+            const auto name = "Frame" + std::to_string(i);
+
+            frame.command_pool = std::make_unique<CommandPool>(name + "CommandPool", *this, graphics_queue_family_);
+            frame.command_buffers.resize(NUM_COMMAND_BUFFERS_PER_FRAME);
+            frame.command_pool->allocate(frame.command_buffers.data(), frame.command_buffers.size());
+
+            frame.render_fence = std::make_unique<Fence>(name + "RenderFence", *this, VK_FENCE_CREATE_SIGNALED_BIT);
+            frame.image_available_semaphore = std::make_unique<Semaphore>(name + "ImageAvailable", *this);
+            frame.render_finished_semaphore = std::make_unique<Semaphore>(name + "RenderFinished", *this);
+
+            frames_.push_back(std::move(frame));
+        }
+    }
+
+    void GraphicsContext::destroy_frames()
+    {
+        VHS_TRACE(GRAPHICS_CONTEXT, "Destroying per-frame data.");
+
+        for (auto& frame : frames_)
+            frame.command_pool->free(frame.command_buffers.data(), frame.command_buffers.size());
+
+        frames_.clear();
     }
 }

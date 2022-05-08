@@ -1,6 +1,7 @@
 #ifndef VHS_GRAPHICS_CONTEXT_HPP
 #define VHS_GRAPHICS_CONTEXT_HPP
 
+#include <memory>
 #include <vector>
 
 #include <GLFW/glfw3.h>
@@ -14,8 +15,25 @@
 
 namespace vhs
 {
+    class CommandPool;
+    class Fence;
     class Framebuffer;
     class RenderPass;
+    class Semaphore;
+
+    // Per-frame structures for recording commands etc.
+    struct FrameData
+    {
+        uint32_t frame_index;
+        uint32_t swapchain_image_index;
+
+        std::unique_ptr<CommandPool> command_pool;
+        std::vector<VkCommandBuffer> command_buffers;
+
+        std::unique_ptr<Fence> render_fence;
+        std::unique_ptr<Semaphore> image_available_semaphore;
+        std::unique_ptr<Semaphore> render_finished_semaphore;
+    };
 
     // Maintains the Vulkan context for rendering and compute.
     class GraphicsContext
@@ -80,6 +98,12 @@ namespace vhs
         void create_swapchain();
         void destroy_swapchain();
 
+
+        // Per-frame data.
+        void create_frames();
+        void destroy_frames();
+
+
         // Vulkan handles.
         VkInstance instance_ = VK_NULL_HANDLE;
         VkDebugUtilsMessengerEXT debug_messenger_ = VK_NULL_HANDLE;
@@ -114,6 +138,9 @@ namespace vhs
         std::vector<VkImageView> swapchain_image_views_;
 
         uint32_t num_swapchain_images_ = -1;
+
+        // Per-frame structures.
+        std::vector<FrameData> frames_;
     };
 }
 

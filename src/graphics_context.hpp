@@ -45,6 +45,7 @@ namespace vhs
 
         // Other accessors.
         uint32_t graphics_queue_family() const { return graphics_queue_family_; }
+        VkSurfaceFormatKHR swapchain_image_format() const { return surface_format_; }
 
     private:
         // VkInstance management.

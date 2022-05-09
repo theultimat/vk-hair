@@ -7,6 +7,7 @@
 namespace vhs
 {
     class Framebuffer;
+    class Pipeline;
     class RenderPass;
 
     // Wrapper around VkCommandBuffer for recording.
@@ -29,6 +30,10 @@ namespace vhs
         // Record various command types.
         void begin_render_pass(RenderPass& pass, Framebuffer& framebuffer, const VkRect2D& render_area, const VkClearValue& clear);
         void end_render_pass();
+
+        void bind_pipeline(const Pipeline& pipeline);
+
+        void draw(uint32_t num_vertices, uint32_t num_instances = 1);
 
         // Finish recording and return the buffer for submission.
         VkCommandBuffer end();

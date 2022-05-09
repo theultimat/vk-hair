@@ -54,6 +54,12 @@ namespace vhs
 
         Pipeline& operator=(Pipeline&& other);
 
+
+        VkPipeline vk_pipeline() const { return pipeline_; }
+        VkPipelineLayout vk_pipeline_layout() const { return layout_; }
+
+        VkPipelineBindPoint bind_point() const { return pass_ ? VK_PIPELINE_BIND_POINT_GRAPHICS : VK_PIPELINE_BIND_POINT_COMPUTE; }
+
     private:
         std::string name_;
         GraphicsContext* context_ = nullptr;

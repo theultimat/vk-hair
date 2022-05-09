@@ -1,6 +1,7 @@
 #include "assert.hpp"
 #include "command_buffer.hpp"
 #include "framebuffer.hpp"
+#include "pipeline.hpp"
 #include "render_pass.hpp"
 
 
@@ -43,5 +44,17 @@ namespace vhs
     void CommandBuffer::end_render_pass()
     {
         vkCmdEndRenderPass(buffer_);
+    }
+
+
+    void CommandBuffer::bind_pipeline(const Pipeline& pipeline)
+    {
+        vkCmdBindPipeline(buffer_, pipeline.bind_point(), pipeline.vk_pipeline());
+    }
+
+
+    void CommandBuffer::draw(uint32_t num_vertices, uint32_t num_instances)
+    {
+        vkCmdDraw(buffer_, num_vertices, num_instances, 0, 0);
     }
 }

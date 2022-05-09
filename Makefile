@@ -16,9 +16,12 @@ SHADER_OBJECTS := $(patsubst $(DATA_ROOT)/%.glsl,$(BUILD_ROOT)/bin/data/%.spv,$(
 PACKAGES := vulkan glfw3 glm fmt
 
 CXX := clang++
-CXXFLAGS := -Wall -Werror -Wextra -std=c++17 -MD -MP -g -O3  $(shell pkg-config --cflags $(PACKAGES))
+CXXFLAGS := -Wall -Werror -Wextra -std=c++17 -MD -MP -g -O3  $(shell pkg-config --cflags $(PACKAGES)) -Isubmodules/VulkanMemoryAllocator/include
 CXXDEFS := -DGLM_FORCE_RADIANS -DGLM_FORCE_DEPTH_ZERO_TO_ONE -DFMT_ENFORCE_COMPILE_STRING -DGLFW_INCLUDE_VULKAN
 LDFLAGS := $(shell pkg-config --libs $(PACKAGES))
+
+# Required for VMA, unfortunately can't disable this using a pragma for a single file.
+CXXFLAGS += -Wno-nullability-completeness
 
 all: $(SHADER_OBJECTS) $(OBJECTS) $(EXECUTABLE)
 

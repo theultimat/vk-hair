@@ -99,6 +99,7 @@ namespace vhs
 
         // Access Vulkan handles.
         VkDevice vk_device() const { return device_; }
+        VmaAllocator vma_allocator() const { return allocator_; }
 
 
         // Other accessors.

@@ -5,6 +5,7 @@
 #include <vector>
 
 #include <GLFW/glfw3.h>
+#include <vk_mem_alloc.h>
 
 #include "assert.hpp"
 
@@ -136,6 +137,10 @@ namespace vhs
         void create_frames();
         void destroy_frames();
 
+        // Device memory allocations.
+        void create_allocator();
+        void destroy_allocator();
+
 
         // Vulkan handles.
         VkInstance instance_ = VK_NULL_HANDLE;
@@ -176,6 +181,9 @@ namespace vhs
         std::vector<FrameData> frames_;
         std::vector<Fence*> swapchain_image_fences_;
         uint32_t current_frame_ = 0;
+
+        // Memory allocations.
+        VmaAllocator allocator_ = VK_NULL_HANDLE;
     };
 }
 

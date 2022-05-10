@@ -88,6 +88,7 @@ namespace vhs
         create_window();
         select_physical_device();
         create_device();
+        create_allocator();
         create_swapchain();
         create_frames();
     }
@@ -100,6 +101,7 @@ namespace vhs
 
         destroy_frames();
         destroy_swapchain();
+        destroy_allocator();
         destroy_device();
         destroy_window();
         destroy_instance();
@@ -681,5 +683,30 @@ namespace vhs
         present_info.pWaitSemaphores = config.wait_semaphores.data();
 
         VHS_CHECK_VK(vkQueuePresentKHR(queue, &present_info));
+    }
+
+
+    // Device memory allocations.
+    void GraphicsContext::create_allocator()
+    {
+        VHS_TRACE(GRAPHICS_CONTEXT, "Creating VmaAllocator.");
+
+        VmaAllocatorCreateInfo create_info { };
+
+        create_info.vulkanApiVersion = VK_API_VERSION_1_1;
+        create_info.instance = instance_;
+        create_info.physicalDevice = physical_device_;
+        create_info.device = device_;
+
+        VHS_CHECK_VK(vmaCreateAllocator(&create_info, &allocator_));
+    }
+
+    void GraphicsContext::destroy_allocator()
+    {
+        if (allocator_)
+        {
+            VHS_TRACE(GRAPHICS_CONTEXT, "Destroying VmaAllocator.");
+            vmaDestroyAllocator(allocator_);
+        }
     }
 }

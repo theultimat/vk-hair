@@ -6,6 +6,7 @@
 
 namespace vhs
 {
+    class Buffer;
     class Framebuffer;
     class Pipeline;
     class RenderPass;
@@ -32,6 +33,7 @@ namespace vhs
         void end_render_pass();
 
         void bind_pipeline(const Pipeline& pipeline);
+        void bind_vertex_buffer(const Buffer& buffer);
 
         void draw(uint32_t num_vertices, uint32_t num_instances = 1);
 

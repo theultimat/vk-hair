@@ -1,4 +1,5 @@
 #include "assert.hpp"
+#include "buffer.hpp"
 #include "command_buffer.hpp"
 #include "framebuffer.hpp"
 #include "pipeline.hpp"
@@ -50,6 +51,14 @@ namespace vhs
     void CommandBuffer::bind_pipeline(const Pipeline& pipeline)
     {
         vkCmdBindPipeline(buffer_, pipeline.bind_point(), pipeline.vk_pipeline());
+    }
+
+    void CommandBuffer::bind_vertex_buffer(const Buffer& buffer)
+    {
+        auto handle = buffer.vk_buffer();
+        VkDeviceSize offset = 0;
+
+        vkCmdBindVertexBuffers(buffer_, 0, 1, &handle, &offset);
     }
 
 

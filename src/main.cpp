@@ -1,6 +1,10 @@
 #include <cmath>
 
+#include <glm/vec2.hpp>
+#include <glm/vec3.hpp>
+
 #include "assert.hpp"
+#include "buffer.hpp"
 #include "command_buffer.hpp"
 #include "framebuffer.hpp"
 #include "graphics_context.hpp"
@@ -12,6 +16,41 @@
 
 
 VHS_TRACE_DEFINE(MAIN);
+
+
+struct Vertex
+{
+    glm::vec2 position;
+    glm::vec3 colour;
+
+    static VkVertexInputBindingDescription vertex_binding_description()
+    {
+        VkVertexInputBindingDescription desc { };
+
+        desc.binding = 0;
+        desc.stride = sizeof(Vertex);
+        desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+        return desc;
+    }
+
+    static std::vector<VkVertexInputAttributeDescription> vertex_attribute_descriptions()
+    {
+        std::vector<VkVertexInputAttributeDescription> attribs(2);
+
+        attribs[0].binding = 0;
+        attribs[0].location = 0;
+        attribs[0].format = VK_FORMAT_R32G32_SFLOAT;
+        attribs[0].offset = offsetof(Vertex, position);
+
+        attribs[1].binding = 0;
+        attribs[1].location = 1;
+        attribs[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+        attribs[1].offset = offsetof(Vertex, colour);
+
+        return attribs;
+    }
+};
 
 
 static vhs::RenderPass create_render_pass(vhs::GraphicsContext& context)
@@ -56,7 +95,24 @@ static vhs::Pipeline create_pipeline(const char* name, vhs::GraphicsContext& con
     config.depth_test = VK_FALSE;
     config.viewport = context.viewport();
 
+    config.vertex_binding_descriptions.push_back(Vertex::vertex_binding_description());
+    config.vertex_attribute_descriptions = Vertex::vertex_attribute_descriptions();
+
     return { name, context, pass, config };
+}
+
+static vhs::Buffer create_vertex_buffer(vhs::GraphicsContext& context, const std::vector<Vertex>& vertices)
+{
+    vhs::BufferConfig config;
+
+    config.size = vertices.size() * sizeof *vertices.data();
+    config.usage_flags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    config.memory_flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
+
+    auto buffer = vhs::Buffer { "Vertices", context, config };
+    buffer.write(vertices.data(), vertices.size());
+
+    return buffer;
 }
 
 int main()
@@ -72,6 +128,15 @@ int main()
     auto fs = create_shader_module("Frag", context, VK_SHADER_STAGE_FRAGMENT_BIT, "data/shaders/fs.spv");
 
     auto pipeline = create_pipeline("TrianglePipeline", context, pass, { &vs, &fs });
+
+    const std::vector<Vertex> vertices
+    {
+        { { 1.0f, 1.0f }, { 1.0f, 0.0f, 0.0f } },
+        { { -1.0f, 1.0f }, { 0.0f, 1.0f, 0.0f } },
+        { { 0.0f, -1.0f }, { 0.0f, 0.0f, 1.0f } }
+    };
+
+    auto vbo = create_vertex_buffer(context, vertices);
 
     VHS_TRACE(MAIN, "Initialisation complete, entering main loop.");
 
@@ -91,6 +156,7 @@ int main()
         clear_cmd.begin_render_pass(pass, framebuffers[frame.swapchain_image_index], context.viewport(), clear);
 
         clear_cmd.bind_pipeline(pipeline);
+        clear_cmd.bind_vertex_buffer(vbo);
         clear_cmd.draw(3);
 
         clear_cmd.end_render_pass();

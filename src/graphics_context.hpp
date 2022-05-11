@@ -2,6 +2,7 @@
 #define VHS_GRAPHICS_CONTEXT_HPP
 
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include <GLFW/glfw3.h>
@@ -19,6 +20,7 @@ namespace vhs
     class CommandPool;
     class Fence;
     class Framebuffer;
+    class ImageView;
     class RenderPass;
     class Semaphore;
 
@@ -79,7 +81,7 @@ namespace vhs
 
 
         // Create framebuffers for the swapchain.
-        std::vector<Framebuffer> create_swapchain_framebuffers(RenderPass& pass);
+        std::vector<Framebuffer> create_swapchain_framebuffers(RenderPass& pass, std::optional<ImageView*> depth_image_view = std::nullopt);
 
         // Start and end the commands for a frame.
         FrameData& begin_frame();

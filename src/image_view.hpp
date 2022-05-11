@@ -16,7 +16,7 @@ namespace vhs
     };
 
     class GraphicsContext;
-    class ImageView;
+    class Image;
 
     class ImageView
     {

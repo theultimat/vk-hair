@@ -11,6 +11,7 @@
 #include "fence.hpp"
 #include "framebuffer.hpp"
 #include "graphics_context.hpp"
+#include "image_view.hpp"
 #include "render_pass.hpp"
 #include "semaphore.hpp"
 #include "trace.hpp"
@@ -537,7 +538,7 @@ namespace vhs
     }
 
 
-    std::vector<Framebuffer> GraphicsContext::create_swapchain_framebuffers(RenderPass& pass)
+    std::vector<Framebuffer> GraphicsContext::create_swapchain_framebuffers(RenderPass& pass, std::optional<ImageView*> depth_image_view)
     {
         VHS_TRACE(GRAPHICS_CONTEXT, "Creating {} framebuffers for swapchain images using render pass '{}'.", num_swapchain_images_, pass.name());
 
@@ -549,6 +550,10 @@ namespace vhs
             FramebufferConfig config;
 
             config.attachments.push_back(swapchain_image_views_.at(i));
+
+            if (depth_image_view)
+                config.attachments.push_back((*depth_image_view)->vk_image_view());
+
             config.width = window_width_;
             config.height = window_height_;
 

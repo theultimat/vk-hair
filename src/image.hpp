@@ -19,6 +19,8 @@ namespace vhs
         VkImageUsageFlags usage_flags;
     };
 
+    class GraphicsContext;
+
     class Image
     {
     public:
@@ -37,6 +39,7 @@ namespace vhs
 
         VkImage vk_image() const { return image_; }
         VkFormat format() const { return format_; }
+        const std::string& name() const { return name_; }
 
     private:
         std::string name_;

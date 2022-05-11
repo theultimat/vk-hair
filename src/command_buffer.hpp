@@ -29,7 +29,7 @@ namespace vhs
 
 
         // Record various command types.
-        void begin_render_pass(RenderPass& pass, Framebuffer& framebuffer, const VkRect2D& render_area, const VkClearValue& clear);
+        void begin_render_pass(RenderPass& pass, Framebuffer& framebuffer, const VkRect2D& render_area, const VkClearValue* clears, uint32_t num_clears);
         void end_render_pass();
 
         void bind_pipeline(const Pipeline& pipeline);

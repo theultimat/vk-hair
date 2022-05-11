@@ -28,7 +28,8 @@ namespace vhs
 
 
     // Record commands.
-    void CommandBuffer::begin_render_pass(RenderPass& pass, Framebuffer& framebuffer, const VkRect2D& render_area, const VkClearValue& clear)
+    void CommandBuffer::begin_render_pass(RenderPass& pass, Framebuffer& framebuffer, const VkRect2D& render_area, const VkClearValue* clears,
+        uint32_t num_clears)
     {
         VkRenderPassBeginInfo begin_info { };
 
@@ -36,8 +37,8 @@ namespace vhs
         begin_info.renderPass = pass.vk_render_pass();
         begin_info.renderArea = render_area;
         begin_info.framebuffer = framebuffer.vk_framebuffer();
-        begin_info.clearValueCount = 1;
-        begin_info.pClearValues = &clear;
+        begin_info.clearValueCount = num_clears;
+        begin_info.pClearValues = clears;
 
         vkCmdBeginRenderPass(buffer_, &begin_info, VK_SUBPASS_CONTENTS_INLINE);
     }

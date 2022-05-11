@@ -8,6 +8,8 @@
 #include "command_buffer.hpp"
 #include "framebuffer.hpp"
 #include "graphics_context.hpp"
+#include "image.hpp"
+#include "image_view.hpp"
 #include "io.hpp"
 #include "pipeline.hpp"
 #include "render_pass.hpp"
@@ -53,7 +55,7 @@ struct Vertex
 };
 
 
-static vhs::RenderPass create_render_pass(vhs::GraphicsContext& context)
+static vhs::RenderPass create_render_pass(vhs::GraphicsContext& context, const vhs::Image& depth_image)
 {
     vhs::RenderPassConfig config;
 
@@ -66,12 +68,37 @@ static vhs::RenderPass create_render_pass(vhs::GraphicsContext& context)
 
     const auto colour_attachment = config.create_attachment(colour_attachment_config);
 
+    vhs::AttachmentConfig depth_attachment_config;
+
+    depth_attachment_config.format = depth_image.format();
+    depth_attachment_config.load_op = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depth_attachment_config.final_layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    const auto depth_attachment = config.create_attachment(depth_attachment_config);
+
     vhs::SubpassConfig subpass_config;
 
     subpass_config.colour_attachments.push_back(colour_attachment);
+    subpass_config.depth_stencil_attachment = depth_attachment;
 
     const auto subpass = config.create_subpass(subpass_config);
-    (void)subpass;
+
+    vhs::SubpassDependencyConfig colour_dependency;
+
+    colour_dependency.src = VK_SUBPASS_EXTERNAL;
+    colour_dependency.dst = subpass;
+    colour_dependency.dst_access_mask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+    vhs::SubpassDependencyConfig depth_dependency;
+
+    depth_dependency.src = VK_SUBPASS_EXTERNAL;
+    depth_dependency.dst = subpass;
+    depth_dependency.src_stage_mask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    depth_dependency.dst_stage_mask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    depth_dependency.dst_access_mask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+    config.create_subpass_dependency(colour_dependency);
+    config.create_subpass_dependency(depth_dependency);
 
     return { "ClearPass", context, config };
 }
@@ -92,7 +119,6 @@ static vhs::Pipeline create_pipeline(const char* name, vhs::GraphicsContext& con
     config.shader_modules = shaders;
     config.colour_blend_attachments.push_back(attachment);
     config.cull_mode = VK_CULL_MODE_NONE;
-    config.depth_test = VK_FALSE;
     config.viewport = context.viewport();
 
     config.vertex_binding_descriptions.push_back(Vertex::vertex_binding_description());
@@ -115,14 +141,37 @@ static vhs::Buffer create_vertex_buffer(vhs::GraphicsContext& context, const std
     return buffer;
 }
 
+vhs::Image create_depth_image(vhs::GraphicsContext& context)
+{
+    vhs::ImageConfig config;
+
+    config.format = VK_FORMAT_D32_SFLOAT;
+    config.extent = { context.viewport().extent.width, context.viewport().extent.height, 1 };
+    config.usage_flags = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+
+    return { "DepthImage", context, config };
+}
+
+vhs::ImageView create_depth_image_view(vhs::GraphicsContext& context, vhs::Image& image)
+{
+    vhs::ImageViewConfig config;
+
+    config.aspect_mask = VK_IMAGE_ASPECT_DEPTH_BIT;
+
+    return { "DepthImageView", context, image, config };
+}
+
 int main()
 {
     VHS_TRACE(MAIN, "Starting initialisation.");
 
     vhs::GraphicsContext context;
 
-    auto pass = create_render_pass(context);
-    auto framebuffers = context.create_swapchain_framebuffers(pass);
+    auto depth_image = create_depth_image(context);
+    auto depth_image_view = create_depth_image_view(context, depth_image);
+
+    auto pass = create_render_pass(context, depth_image);
+    auto framebuffers = context.create_swapchain_framebuffers(pass, &depth_image_view);
 
     auto vs = create_shader_module("Vert", context, VK_SHADER_STAGE_VERTEX_BIT, "data/shaders/vs.spv");
     auto fs = create_shader_module("Frag", context, VK_SHADER_STAGE_FRAGMENT_BIT, "data/shaders/fs.spv");
@@ -148,12 +197,13 @@ int main()
 
         vhs::CommandBuffer clear_cmd(frame.command_buffers[0]);
 
-        const VkClearValue clear
+        const VkClearValue clears[] =
         {
-            .color = { .float32 = { 0, 0, (float)std::abs(std::sin(glfwGetTime())), 1 } }
+            { .color = { .float32 = { 0, 0, (float)std::abs(std::sin(glfwGetTime())), 1 } } },
+            { .depthStencil = { .depth = 1.0f } }
         };
 
-        clear_cmd.begin_render_pass(pass, framebuffers[frame.swapchain_image_index], context.viewport(), clear);
+        clear_cmd.begin_render_pass(pass, framebuffers[frame.swapchain_image_index], context.viewport(), clears, std::size(clears));
 
         clear_cmd.bind_pipeline(pipeline);
         clear_cmd.bind_vertex_buffer(vbo);

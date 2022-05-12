@@ -37,6 +37,8 @@ namespace vhs
 
         void draw(uint32_t num_vertices, uint32_t num_instances = 1);
 
+        void push_constants(const Pipeline& pipeline, VkShaderStageFlags stage_flags, const void* data, uint32_t size, uint32_t offset = 0);
+
         // Finish recording and return the buffer for submission.
         VkCommandBuffer end();
 

@@ -63,6 +63,13 @@ namespace vhs
     }
 
 
+    void CommandBuffer::push_constants(const Pipeline& pipeline, VkShaderStageFlags stage_flags, const void* data, uint32_t size,
+        uint32_t offset)
+    {
+        vkCmdPushConstants(buffer_, pipeline.vk_pipeline_layout(), stage_flags, offset, size, data);
+    }
+
+
     void CommandBuffer::draw(uint32_t num_vertices, uint32_t num_instances)
     {
         vkCmdDraw(buffer_, num_vertices, num_instances, 0, 0);

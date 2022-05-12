@@ -27,6 +27,7 @@ namespace vhs
         std::vector<VkVertexInputBindingDescription> vertex_binding_descriptions;
         std::vector<VkVertexInputAttributeDescription> vertex_attribute_descriptions;
         std::vector<VkDescriptorSetLayout> descriptor_set_layouts;
+        std::vector<VkPushConstantRange> push_constants;
         VkPrimitiveTopology primitive_topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
         VkSampleCountFlagBits sample_count = VK_SAMPLE_COUNT_1_BIT;
         VkFrontFace front_face = VK_FRONT_FACE_COUNTER_CLOCKWISE;

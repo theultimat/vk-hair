@@ -109,6 +109,8 @@ namespace vhs
         layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         layout_info.setLayoutCount = config.descriptor_set_layouts.size();
         layout_info.pSetLayouts = config.descriptor_set_layouts.data();
+        layout_info.pushConstantRangeCount = config.push_constants.size();
+        layout_info.pPushConstantRanges = config.push_constants.data();
 
         VHS_CHECK_VK(vkCreatePipelineLayout(context.vk_device(), &layout_info, nullptr, &layout_));
 

@@ -42,6 +42,7 @@ namespace vhs
 
 
         VkDescriptorSetLayout vk_descriptor_set_layout() const { return layout_; }
+        const std::string& name() const { return name_; }
 
     private:
         std::string name_;

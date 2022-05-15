@@ -790,4 +790,17 @@ namespace vhs
 
         return { name, *this, config };
     }
+
+    Buffer GraphicsContext::create_host_visible_buffer(std::string_view name, VkBufferUsageFlags usage, uint32_t size)
+    {
+        VHS_TRACE(GRAPHICS_CONTEXT, "Creating host visible buffer '{}' with usage 0x{:x} and size {}.", name, usage, size);
+
+        BufferConfig config;
+
+        config.size = size;
+        config.usage_flags = usage;
+        config.memory_flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
+
+        return { name, *this, config };
+    }
 }

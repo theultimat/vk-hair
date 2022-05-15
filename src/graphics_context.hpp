@@ -106,6 +106,7 @@ namespace vhs
         // Buffer utility functions.
         Buffer create_staging_buffer(std::string_view name, uint32_t size);
         Buffer create_device_local_buffer(std::string_view name, VkBufferUsageFlags usage, uint32_t size);
+        Buffer create_host_visible_buffer(std::string_view name, VkBufferUsageFlags usage, uint32_t size);
 
         template <class T>
         Buffer create_device_local_buffer(std::string_view name, VkBufferUsageFlags usage, const T* data, uint32_t size)
@@ -116,6 +117,14 @@ namespace vhs
             staging.write(data, size);
             copy_buffer(buffer, staging);
 
+            return buffer;
+        }
+
+        template <class T>
+        Buffer create_host_visible_buffer(std::string_view name, VkBufferUsageFlags usage, const T* data, uint32_t size)
+        {
+            auto buffer = create_host_visible_buffer(name, usage, sizeof *data * size);
+            buffer.write(data, size);
             return buffer;
         }
 

@@ -1,5 +1,7 @@
 #include <cmath>
 
+#include <algorithm>
+
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/mat4x4.hpp>
 #include <glm/vec2.hpp>
@@ -8,6 +10,8 @@
 #include "assert.hpp"
 #include "buffer.hpp"
 #include "command_buffer.hpp"
+#include "descriptor_pool.hpp"
+#include "descriptor_set_layout.hpp"
 #include "framebuffer.hpp"
 #include "graphics_context.hpp"
 #include "image.hpp"
@@ -137,7 +141,17 @@ static vhs::Pipeline create_pipeline(const char* name, vhs::GraphicsContext& con
     return { name, context, pass, config };
 }
 
-vhs::Image create_depth_image(vhs::GraphicsContext& context)
+static vhs::Pipeline create_pipeline(const char* name, vhs::GraphicsContext& context, vhs::ShaderModule& shader, vhs::DescriptorSetLayout& desc_layout)
+{
+    vhs::ComputePipelineConfig config;
+
+    config.shader_module = &shader;
+    config.descriptor_set_layouts.push_back(desc_layout.vk_descriptor_set_layout());
+
+    return { name, context, config };
+}
+
+static vhs::Image create_depth_image(vhs::GraphicsContext& context)
 {
     vhs::ImageConfig config;
 
@@ -148,7 +162,7 @@ vhs::Image create_depth_image(vhs::GraphicsContext& context)
     return { "DepthImage", context, config };
 }
 
-vhs::ImageView create_depth_image_view(vhs::GraphicsContext& context, vhs::Image& image)
+static vhs::ImageView create_depth_image_view(vhs::GraphicsContext& context, vhs::Image& image)
 {
     vhs::ImageViewConfig config;
 
@@ -157,11 +171,100 @@ vhs::ImageView create_depth_image_view(vhs::GraphicsContext& context, vhs::Image
     return { "DepthImageView", context, image, config };
 }
 
+static vhs::DescriptorSetLayout create_descriptor_set_layout(vhs::GraphicsContext& context)
+{
+    vhs::DescriptorSetLayoutBindingConfig binding;
+
+    binding.binding = 0;
+    binding.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    binding.stage_flags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    vhs::DescriptorSetLayoutConfig config;
+
+    config.bindings.push_back(binding);
+
+    return { "ComputeDescLayout", context, config };
+}
+
+static vhs::DescriptorPool create_descriptor_pool(vhs::GraphicsContext& context)
+{
+    vhs::DescriptorPoolConfig config;
+
+    config.sizes[VK_DESCRIPTOR_TYPE_STORAGE_BUFFER] = 1;
+
+    return { "DescPool", context, config };
+}
+
+    struct DescriptorSetBufferConfig
+    {
+        uint32_t binding;
+        VkDeviceSize size;
+        VkDescriptorType type;
+        VkBuffer buffer = VK_NULL_HANDLE;
+        VkDeviceSize offset = 0;
+    };
+
+    // Configuration for the descriptor set allocation.
+    struct DescriptorSetConfig
+    {
+        std::vector<DescriptorSetBufferConfig> buffers;
+    };
+
+static void test_compute(vhs::GraphicsContext& context)
+{
+    VHS_TRACE(MAIN, "Starting compute test.");
+
+    std::vector<int32_t> data { -3, -2, -1, 0, 1, 2, 3, 4, 5, 6 };
+
+    auto buffer = context.create_host_visible_buffer("ComputeData", VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, data.data(), data.size());
+
+    std::vector<int32_t> results;
+    std::transform(std::begin(data), std::end(data), std::back_inserter(results), [](int32_t i) { return i * 2; });
+
+    data.clear();
+    data.resize(10, 0);
+
+    auto kernel = create_shader_module("ComputeTestKernel", context, VK_SHADER_STAGE_COMPUTE_BIT, "data/shaders/comptest.spv");
+    auto desc_pool = create_descriptor_pool(context);
+    auto desc_layout = create_descriptor_set_layout(context);
+
+    VkDescriptorSet desc_set = VK_NULL_HANDLE;
+
+    {
+        vhs::DescriptorSetBufferConfig buffer_config;
+
+        buffer_config.binding = 0;
+        buffer_config.size = buffer.size();
+        buffer_config.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        buffer_config.buffer = buffer.vk_buffer();
+
+        vhs::DescriptorSetConfig set_config;
+
+        set_config.buffers.push_back(buffer_config);
+
+        desc_set = desc_pool.allocate(desc_layout, set_config);
+    }
+
+    auto pipeline = create_pipeline("ComputeTestPipeline", context, kernel, desc_layout);
+
+    context.compute(pipeline, buffer, 1, &desc_set, 1);
+
+    buffer.read(data.data(), data.size());
+
+    VHS_TRACE(MAIN, "Expected results: {}.", fmt::join(results, ", "));
+    VHS_TRACE(MAIN, "Actual results: {}.", fmt::join(data, ", "));
+    VHS_ASSERT(results == data, "Compute test failed!");
+
+    VHS_TRACE(MAIN, "Compute test complete, resuming normal operation.");
+}
+
 int main()
 {
     VHS_TRACE(MAIN, "Starting initialisation.");
 
     vhs::GraphicsContext context;
+
+    test_compute(context);
 
     auto depth_image = create_depth_image(context);
     auto depth_image_view = create_depth_image_view(context, depth_image);

@@ -23,6 +23,7 @@ namespace vhs
     class Fence;
     class Framebuffer;
     class ImageView;
+    class Pipeline;
     class RenderPass;
     class Semaphore;
 
@@ -95,6 +96,7 @@ namespace vhs
 
         // Common immediate commands.
         void copy_buffer(Buffer& dst, Buffer& src);
+        void compute(Pipeline& pipeline, const Buffer& output, uint32_t num_groups, const VkDescriptorSet* sets, uint32_t num_sets);
 
         // Window functions.
         bool is_window_open() const { return !glfwWindowShouldClose(window_); }

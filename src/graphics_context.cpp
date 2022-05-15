@@ -13,6 +13,7 @@
 #include "framebuffer.hpp"
 #include "graphics_context.hpp"
 #include "image_view.hpp"
+#include "pipeline.hpp"
 #include "render_pass.hpp"
 #include "semaphore.hpp"
 #include "trace.hpp"
@@ -760,6 +761,35 @@ namespace vhs
         queue_submit(graphics_queue_, submit);
 
         immediate_command_fence_->wait();
+        immediate_command_fence_->reset();
+        immediate_command_pool_->reset();
+    }
+
+    void GraphicsContext::compute(Pipeline& pipeline, const Buffer& output, uint32_t num_groups, const VkDescriptorSet* sets, uint32_t num_sets)
+    {
+        VHS_TRACE(GRAPHICS_CONTEXT, "Submitting compute pipeline '{}'.", pipeline.name());
+
+        PipelineBarrier barrier { VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_HOST_BIT };
+
+        barrier.add_buffer(VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_HOST_READ_BIT, output);
+
+        CommandBuffer cmd { immediate_command_buffer_ };
+
+        cmd.bind_pipeline(pipeline);
+        cmd.bind_descriptor_sets(pipeline, sets, num_sets);
+        cmd.dispatch(num_groups);
+        cmd.barrier(barrier);
+        cmd.end();
+
+        QueueSubmitConfig submit;
+
+        submit.command_buffers.push_back(immediate_command_buffer_);
+        submit.signal_fence = immediate_command_fence_->vk_fence();
+
+        queue_submit(graphics_queue_, submit);
+
+        immediate_command_fence_->wait();
+        immediate_command_fence_->reset();
         immediate_command_pool_->reset();
     }
 

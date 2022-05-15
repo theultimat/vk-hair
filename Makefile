@@ -35,6 +35,7 @@ $(BUILD_ROOT)/obj/%.o: $(SOURCE_ROOT)/%
 	@mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) $(CXXDEFS) -c -MF$@.d -o $@ $<
 
+$(filter %.spv,$(SHADER_OBJECTS)): SHADER_STAGE := comp
 $(filter %/vs.spv,$(SHADER_OBJECTS)): SHADER_STAGE := vert
 $(filter %/fs.spv,$(SHADER_OBJECTS)): SHADER_STAGE := frag
 

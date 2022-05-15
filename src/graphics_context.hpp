@@ -10,6 +10,7 @@
 
 #include "assert.hpp"
 #include "buffer.hpp"
+#include "io.hpp"
 
 
 // Convenience macro to save typing the function name twice.
@@ -101,6 +102,7 @@ namespace vhs
         // Window functions.
         bool is_window_open() const { return !glfwWindowShouldClose(window_); }
         void poll_window_events() const { glfwPollEvents(); }
+        void close_window() { glfwSetWindowShouldClose(window_, GLFW_TRUE); }
 
         // Wait for the device to become idle.
         void wait_idle() const { VHS_CHECK_VK(vkDeviceWaitIdle(device_)); }
@@ -148,6 +150,9 @@ namespace vhs
         VkSurfaceFormatKHR swapchain_image_format() const { return surface_format_; }
         VkRect2D viewport() const { return { { 0, 0 }, surface_extent_ }; }
 
+        const KeyboardState& keyboard_state() const { return keyboard_state_; }
+        const MouseState& mouse_state() const { return mouse_state_; }
+
     private:
         // VkInstance management.
         void create_instance();
@@ -167,6 +172,10 @@ namespace vhs
         // Window and surface management.
         void create_window();
         void destroy_window();
+
+        static void glfw_key_callback(GLFWwindow* window, int key, int code, int action, int mods);
+        static void glfw_cursor_pos_callback(GLFWwindow* window, double x, double y);
+        static void glfw_mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 
         // Swapchain support.
         bool check_swapchain_support(VkPhysicalDevice device);
@@ -210,6 +219,9 @@ namespace vhs
 
         uint32_t window_width_ = -1;
         uint32_t window_height_ = - 1;
+
+        KeyboardState keyboard_state_;
+        MouseState mouse_state_;
 
         // Swapchain properties.
         VkSurfaceCapabilitiesKHR surface_capabilities_;

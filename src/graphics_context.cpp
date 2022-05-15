@@ -392,6 +392,13 @@ namespace vhs
 
         window_ = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "vk-hair", nullptr, nullptr);
 
+        glfwSetWindowUserPointer(window_, this);
+        glfwSetInputMode(window_, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+        glfwSetKeyCallback(window_, glfw_key_callback);
+        glfwSetCursorPosCallback(window_, glfw_cursor_pos_callback);
+        glfwSetMouseButtonCallback(window_, glfw_mouse_button_callback);
+
         int width, height;
         glfwGetFramebufferSize(window_, &width, &height);
 
@@ -416,6 +423,29 @@ namespace vhs
             VHS_TRACE(GRAPHICS_CONTEXT, "Destroying window.");
             glfwDestroyWindow(window_);
         }
+    }
+
+    void GraphicsContext::glfw_key_callback(GLFWwindow* window, int key, int code, int action, int mods)
+    {
+        (void)code; (void)mods;
+
+        auto* ptr = static_cast<GraphicsContext*>(glfwGetWindowUserPointer(window));
+        ptr->keyboard_state_.keys_[key] = action != GLFW_RELEASE;
+    }
+
+    void GraphicsContext::glfw_cursor_pos_callback(GLFWwindow* window, double x, double y)
+    {
+        auto* ptr = static_cast<GraphicsContext*>(glfwGetWindowUserPointer(window));
+        ptr->mouse_state_.x_ = x;
+        ptr->mouse_state_.y_ = y;
+    }
+
+    void GraphicsContext::glfw_mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
+    {
+        (void)mods;
+
+        auto* ptr = static_cast<GraphicsContext*>(glfwGetWindowUserPointer(window));
+        ptr->mouse_state_.buttons_[button] = action != GLFW_RELEASE;
     }
 
 

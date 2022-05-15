@@ -91,6 +91,7 @@ namespace vhs
         create_device();
         create_allocator();
         create_swapchain();
+        create_immediate_command_pool();
         create_frames();
     }
 
@@ -101,6 +102,7 @@ namespace vhs
         wait_idle();
 
         destroy_frames();
+        destroy_immediate_command_pool();
         destroy_swapchain();
         destroy_allocator();
         destroy_device();
@@ -713,5 +715,25 @@ namespace vhs
             VHS_TRACE(GRAPHICS_CONTEXT, "Destroying VmaAllocator.");
             vmaDestroyAllocator(allocator_);
         }
+    }
+
+
+    // Immediate command submission.
+    void GraphicsContext::create_immediate_command_pool()
+    {
+        VHS_TRACE(GRAPHICS_CONTEXT, "Creating immediate command pool.");
+
+        immediate_command_pool_ = std::make_unique<CommandPool>("ImmediateCommandPool", *this, graphics_queue_family_);
+        immediate_command_pool_->allocate(&immediate_command_buffer_, 1);
+        immediate_command_fence_ = std::make_unique<Fence>("ImmediateCommandFence", *this);
+    }
+
+    void GraphicsContext::destroy_immediate_command_pool()
+    {
+        VHS_TRACE(GRAPHICS_CONTEXT, "Destroying immedaite command pool.");
+
+        immediate_command_fence_.reset();
+        immediate_command_pool_->free(&immediate_command_buffer_, 1);
+        immediate_command_pool_.reset();
     }
 }

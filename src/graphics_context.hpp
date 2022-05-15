@@ -144,6 +144,10 @@ namespace vhs
         void create_allocator();
         void destroy_allocator();
 
+        // Immediate command submission.
+        void create_immediate_command_pool();
+        void destroy_immediate_command_pool();
+
 
         // Vulkan handles.
         VkInstance instance_ = VK_NULL_HANDLE;
@@ -187,6 +191,11 @@ namespace vhs
 
         // Memory allocations.
         VmaAllocator allocator_ = VK_NULL_HANDLE;
+
+        // Resources for immediate command submission.
+        std::unique_ptr<CommandPool> immediate_command_pool_;
+        std::unique_ptr<Fence> immediate_command_fence_;
+        VkCommandBuffer immediate_command_buffer_ = VK_NULL_HANDLE;
     };
 }
 

@@ -14,8 +14,6 @@ namespace vhs
     class Pipeline;
     class RenderPass;
 
-    struct BufferMemoryBarrier;
-
     // Helper for building barriers.
     class PipelineBarrier
     {

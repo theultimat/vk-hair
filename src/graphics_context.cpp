@@ -7,6 +7,7 @@
 
 #include <fmt/format.h>
 
+#include "command_buffer.hpp"
 #include "command_pool.hpp"
 #include "fence.hpp"
 #include "framebuffer.hpp"
@@ -737,5 +738,56 @@ namespace vhs
         immediate_command_fence_.reset();
         immediate_command_pool_->free(&immediate_command_buffer_, 1);
         immediate_command_pool_.reset();
+    }
+
+
+    // Common immediate commands.
+    void GraphicsContext::copy_buffer(Buffer& dst, Buffer& src)
+    {
+        VHS_TRACE(GRAPHICS_CONTEXT, "Copying buffer '{}' into buffer '{}'.", src.name(), dst.name());
+        VHS_ASSERT(dst.size() == src.size(), "Attempted to copy buffers of different sizes.");
+
+        CommandBuffer cmd { immediate_command_buffer_ };
+
+        cmd.copy_buffer(dst, src);
+        cmd.end();
+
+        QueueSubmitConfig submit;
+
+        submit.command_buffers.push_back(immediate_command_buffer_);
+        submit.signal_fence = immediate_command_fence_->vk_fence();
+
+        queue_submit(graphics_queue_, submit);
+
+        immediate_command_fence_->wait();
+        immediate_command_pool_->reset();
+    }
+
+
+    // Buffer utilities.
+    Buffer GraphicsContext::create_staging_buffer(std::string_view name, uint32_t size)
+    {
+        VHS_TRACE(GRAPHICS_CONTEXT, "Creating staging buffer '{}' of size {}.", name, size);
+
+        BufferConfig config;
+
+        config.size = size;
+        config.usage_flags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+        config.memory_flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+
+        return { name, *this, config };
+    }
+
+    Buffer GraphicsContext::create_device_local_buffer(std::string_view name, VkBufferUsageFlags usage, uint32_t size)
+    {
+        VHS_TRACE(GRAPHICS_CONTEXT, "Creating device local buffer '{}' with usage 0x{:x} and size {}.", name, usage, size);
+
+        BufferConfig config;
+
+        config.size = size;
+        config.usage_flags = usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+        config.memory_flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+
+        return { name, *this, config };
     }
 }

@@ -74,4 +74,21 @@ namespace vhs
     {
         vkCmdDraw(buffer_, num_vertices, num_instances, 0, 0);
     }
+
+
+    void CommandBuffer::copy_buffer(Buffer& dst, Buffer& src, VkDeviceSize size, VkDeviceSize src_offset, VkDeviceSize dst_offset)
+    {
+        // If size is zero then default to source size.
+        if (!size)
+            size = src.size();
+
+        const VkBufferCopy copy
+        {
+            .srcOffset = src_offset,
+            .dstOffset = dst_offset,
+            .size = size
+        };
+
+        vkCmdCopyBuffer(buffer_, src.vk_buffer(), dst.vk_buffer(), 1, &copy);
+    }
 }

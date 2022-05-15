@@ -137,20 +137,6 @@ static vhs::Pipeline create_pipeline(const char* name, vhs::GraphicsContext& con
     return { name, context, pass, config };
 }
 
-static vhs::Buffer create_vertex_buffer(vhs::GraphicsContext& context, const std::vector<Vertex>& vertices)
-{
-    vhs::BufferConfig config;
-
-    config.size = vertices.size() * sizeof *vertices.data();
-    config.usage_flags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-    config.memory_flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
-
-    auto buffer = vhs::Buffer { "Vertices", context, config };
-    buffer.write(vertices.data(), vertices.size());
-
-    return buffer;
-}
-
 vhs::Image create_depth_image(vhs::GraphicsContext& context)
 {
     vhs::ImageConfig config;
@@ -195,7 +181,7 @@ int main()
         { { 0.0f, -1.0f }, { 0.0f, 0.0f, 1.0f } }
     };
 
-    auto vbo = create_vertex_buffer(context, vertices);
+    auto vbo = context.create_vertex_buffer("Vertices", vertices.data(), vertices.size());
 
     VHS_TRACE(MAIN, "Initialisation complete, entering main loop.");
 

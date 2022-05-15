@@ -13,7 +13,8 @@ namespace vhs
 {
     Buffer::Buffer(std::string_view name, GraphicsContext& context, const BufferConfig& config) :
         name_ { name },
-        context_ { &context }
+        context_ { &context },
+        size_ { config.size }
     {
         VHS_TRACE(BUFFER, "Creating '{}' with size {}, usage flags 0x{:x}, and memory flags 0x{:x}.", name, config.size,
             config.usage_flags, config.memory_flags);
@@ -37,7 +38,8 @@ namespace vhs
         name_ { std::move(other.name_) },
         context_ { std::move(other.context_) },
         buffer_ { std::move(other.buffer_) },
-        alloc_ { std::move(other.alloc_) }
+        alloc_ { std::move(other.alloc_) },
+        size_ { std::move(other.size_) }
     {
         other.buffer_ = VK_NULL_HANDLE;
         other.alloc_ = VK_NULL_HANDLE;
@@ -59,6 +61,7 @@ namespace vhs
         context_ = std::move(other.context_);
         buffer_ = std::move(other.buffer_);
         alloc_ = std::move(other.alloc_);
+        size_ = std::move(other.size_);
 
         other.buffer_ = VK_NULL_HANDLE;
         other.alloc_ = VK_NULL_HANDLE;

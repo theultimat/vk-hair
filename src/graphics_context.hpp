@@ -9,6 +9,7 @@
 #include <vk_mem_alloc.h>
 
 #include "assert.hpp"
+#include "buffer.hpp"
 
 
 // Convenience macro to save typing the function name twice.
@@ -17,6 +18,7 @@
 
 namespace vhs
 {
+    class Buffer;
     class CommandPool;
     class Fence;
     class Framebuffer;
@@ -91,12 +93,37 @@ namespace vhs
         void queue_submit(VkQueue queue, const QueueSubmitConfig& config) const;
         void queue_present(VkQueue queue, const QueuePresentConfig& config) const;
 
+        // Common immediate commands.
+        void copy_buffer(Buffer& dst, Buffer& src);
+
         // Window functions.
         bool is_window_open() const { return !glfwWindowShouldClose(window_); }
         void poll_window_events() const { glfwPollEvents(); }
 
         // Wait for the device to become idle.
         void wait_idle() const { VHS_CHECK_VK(vkDeviceWaitIdle(device_)); }
+
+        // Buffer utility functions.
+        Buffer create_staging_buffer(std::string_view name, uint32_t size);
+        Buffer create_device_local_buffer(std::string_view name, VkBufferUsageFlags usage, uint32_t size);
+
+        template <class T>
+        Buffer create_device_local_buffer(std::string_view name, VkBufferUsageFlags usage, const T* data, uint32_t size)
+        {
+            auto staging = create_staging_buffer("StagingFor" + std::string(name), sizeof *data * size);
+            auto buffer = create_device_local_buffer(name, usage, sizeof *data * size);
+
+            staging.write(data, size);
+            copy_buffer(buffer, staging);
+
+            return buffer;
+        }
+
+        template <class T>
+        Buffer create_vertex_buffer(std::string_view name, const T* data, uint32_t size)
+        {
+            return create_device_local_buffer(name, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, data, size);
+        }
 
 
         // Access Vulkan handles.

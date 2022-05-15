@@ -39,6 +39,8 @@ namespace vhs
 
         void push_constants(const Pipeline& pipeline, VkShaderStageFlags stage_flags, const void* data, uint32_t size, uint32_t offset = 0);
 
+        void copy_buffer(Buffer& dst, Buffer& src, VkDeviceSize size = 0, VkDeviceSize src_offset = 0, VkDeviceSize dst_offset = 0);
+
         // Finish recording and return the buffer for submission.
         VkCommandBuffer end();
 

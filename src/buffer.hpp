@@ -38,6 +38,8 @@ namespace vhs
 
 
         VkBuffer vk_buffer() const { return buffer_; }
+        const std::string& name() const { return name_; }
+        VkDeviceSize size() const { return size_; }
 
 
         // Read/write data. Count and offset are given in terms of T. Offset is for the device buffer,
@@ -63,6 +65,7 @@ namespace vhs
         GraphicsContext* context_ = nullptr;
         VkBuffer buffer_ = VK_NULL_HANDLE;
         VmaAllocation alloc_ = VK_NULL_HANDLE;
+        VkDeviceSize size_ = 0;
     };
 }
 

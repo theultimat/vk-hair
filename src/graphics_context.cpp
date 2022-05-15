@@ -267,7 +267,9 @@ namespace vhs
             {
                 const auto& queue_family = queue_families.at(i);
 
-                if (!graphics_queue_family && (queue_family.queueFlags & VK_QUEUE_GRAPHICS_BIT))
+                // The Vulkan spec. guarantees that there's at least one queue with both graphics and compute support
+                // so grab that to keep command recording simpler.
+                if (!graphics_queue_family && (queue_family.queueFlags & (VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT)))
                     graphics_queue_family = i;
 
                 if (!present_queue_family)

@@ -62,6 +62,11 @@ namespace vhs
         vkCmdBindVertexBuffers(buffer_, 0, 1, &handle, &offset);
     }
 
+    void CommandBuffer::bind_descriptor_sets(const Pipeline& pipeline, const VkDescriptorSet* sets, uint32_t num_sets)
+    {
+        vkCmdBindDescriptorSets(buffer_, pipeline.bind_point(), pipeline.vk_pipeline_layout(), 0, num_sets, sets, 0, nullptr);
+    }
+
 
     void CommandBuffer::push_constants(const Pipeline& pipeline, VkShaderStageFlags stage_flags, const void* data, uint32_t size,
         uint32_t offset)
@@ -73,6 +78,11 @@ namespace vhs
     void CommandBuffer::draw(uint32_t num_vertices, uint32_t num_instances)
     {
         vkCmdDraw(buffer_, num_vertices, num_instances, 0, 0);
+    }
+
+    void CommandBuffer::dispatch(uint32_t num_groups_x, uint32_t num_groups_y, uint32_t num_groups_z)
+    {
+        vkCmdDispatch(buffer_, num_groups_x, num_groups_y, num_groups_z);
     }
 
 
@@ -90,5 +100,32 @@ namespace vhs
         };
 
         vkCmdCopyBuffer(buffer_, src.vk_buffer(), dst.vk_buffer(), 1, &copy);
+    }
+
+
+    void CommandBuffer::barrier(const PipelineBarrier& barrier)
+    {
+        vkCmdPipelineBarrier(buffer_, barrier.src_mask_, barrier.dst_mask_, 0, 0, nullptr, barrier.buffers_.size(),
+            barrier.buffers_.data(), 0, nullptr);
+    }
+
+
+    // Barrier utility functions.
+    PipelineBarrier::PipelineBarrier(VkPipelineStageFlags src_mask, VkPipelineStageFlags dst_mask) :
+        src_mask_ { src_mask },
+        dst_mask_ { dst_mask }
+    { }
+
+    void PipelineBarrier::add_buffer(VkAccessFlags src, VkAccessFlags dst, const Buffer& buffer)
+    {
+        VkBufferMemoryBarrier info { };
+
+        info.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+        info.srcAccessMask = src;
+        info.dstAccessMask = dst;
+        info.buffer = buffer.vk_buffer();
+        info.size = buffer.size();
+
+        buffers_.push_back(info);
     }
 }

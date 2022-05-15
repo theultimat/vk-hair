@@ -9,6 +9,7 @@
 
 #include "assert.hpp"
 #include "buffer.hpp"
+#include "camera.hpp"
 #include "command_buffer.hpp"
 #include "descriptor_pool.hpp"
 #include "descriptor_set_layout.hpp"
@@ -286,22 +287,39 @@ int main()
 
     auto vbo = context.create_vertex_buffer("Vertices", vertices.data(), vertices.size());
 
+    vhs::Camera camera { context.viewport().extent.width, context.viewport().extent.height, glm::vec3 { -3.0f, 0.5f, 0.0f } };
+
     VHS_TRACE(MAIN, "Initialisation complete, entering main loop.");
+
+    auto last_time = glfwGetTime();
+    auto last_ms = context.mouse_state();
 
     while (context.is_window_open())
     {
         context.poll_window_events();
 
+        if (context.keyboard_state().down(GLFW_KEY_ESCAPE))
+        {
+            context.close_window();
+            break;
+        }
+
+        const auto current_time = glfwGetTime();
+        const auto dt = current_time - last_time;
+
+        const auto dx = context.mouse_state().x() - last_ms.x();
+        const auto dy = context.mouse_state().y() - last_ms.y();
+
+        camera.process_input(context.keyboard_state(), dx, dy);
+        camera.update(dt);
+
+        last_time = current_time;
+        last_ms = context.mouse_state();
+
         auto& frame = context.begin_frame();
 
         const auto model = glm::rotate(glm::mat4 { 1.0f }, (float)glfwGetTime(), glm::vec3(0, 1, 0));
-        const auto view = glm::translate(glm::mat4 { 1.0f }, glm::vec3 { 0.0f, 0.0f, -2.0f });
-
-        const auto aspect = (float)context.viewport().extent.width / context.viewport().extent.height;
-        auto proj = glm::perspective(glm::radians(90.0f), aspect, 0.1f, 100.0f);
-        proj[1][1] *= -1;
-
-        const auto mvp = proj * view * model;
+        const auto mvp = camera.projection() * camera.view() * model;
 
         vhs::CommandBuffer clear_cmd(frame.command_buffers[0]);
 

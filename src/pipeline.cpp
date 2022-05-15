@@ -133,6 +133,39 @@ namespace vhs
         VHS_CHECK_VK(vkCreateGraphicsPipelines(context.vk_device(), VK_NULL_HANDLE, 1, &create_info, nullptr, &pipeline_));
     }
 
+    Pipeline::Pipeline(std::string_view name, GraphicsContext& context, const ComputePipelineConfig& config) :
+        name_ { name },
+        context_ { &context }
+    {
+        VHS_TRACE(PIPELINE, "Creating compute pipeline '{}' using shader '{}'.", name, config.shader_module->name());
+        VHS_ASSERT(config.shader_module->stage() & VK_SHADER_STAGE_COMPUTE_BIT, "Attempted to create compute pipeline with non-compute shader.");
+
+        VkPipelineLayoutCreateInfo layout_info { };
+
+        layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+        layout_info.setLayoutCount = config.descriptor_set_layouts.size();
+        layout_info.pSetLayouts = config.descriptor_set_layouts.data();
+        layout_info.pushConstantRangeCount = config.push_constants.size();
+        layout_info.pPushConstantRanges = config.push_constants.data();
+
+        VHS_CHECK_VK(vkCreatePipelineLayout(context.vk_device(), &layout_info, nullptr, &layout_));
+
+        VkPipelineShaderStageCreateInfo stage_info { };
+
+        stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        stage_info.stage = static_cast<VkShaderStageFlagBits>(config.shader_module->stage());
+        stage_info.module = config.shader_module->vk_shader_module();
+        stage_info.pName = "main";
+
+        VkComputePipelineCreateInfo create_info { };
+
+        create_info.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+        create_info.stage = stage_info;
+        create_info.layout = layout_;
+
+        VHS_CHECK_VK(vkCreateComputePipelines(context.vk_device(), VK_NULL_HANDLE, 1, &create_info, nullptr, &pipeline_));
+    }
+
     Pipeline::Pipeline(Pipeline&& other) :
         name_ { std::move(other.name_) },
         context_ { std::move(other.context_) },

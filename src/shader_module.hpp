@@ -29,6 +29,7 @@ namespace vhs
 
         VkShaderModule vk_shader_module() const { return shader_; }
         VkShaderStageFlags stage() const { return stage_; }
+        const std::string& name() const { return name_; }
 
     private:
         std::string name_;

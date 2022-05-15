@@ -38,8 +38,14 @@ namespace vhs
         VkRect2D viewport;
     };
 
+    struct ComputePipelineConfig
+    {
+        std::vector<VkDescriptorSetLayout> descriptor_set_layouts;
+        std::vector<VkPushConstantRange> push_constants;
+        ShaderModule* shader_module;
+    };
+
     // Graphics or compute pipeline depending on constructor used.
-    // TODO Actually add compute support.
     class Pipeline
     {
     public:
@@ -47,6 +53,7 @@ namespace vhs
         Pipeline(const Pipeline&) = delete;
 
         Pipeline(std::string_view name, GraphicsContext& context, RenderPass& pass, const GraphicsPipelineConfig& config);
+        Pipeline(std::string_view name, GraphicsContext& context, const ComputePipelineConfig& config);
         Pipeline(Pipeline&& other);
         ~Pipeline();
 
@@ -60,6 +67,7 @@ namespace vhs
         VkPipelineLayout vk_pipeline_layout() const { return layout_; }
 
         VkPipelineBindPoint bind_point() const { return pass_ ? VK_PIPELINE_BIND_POINT_GRAPHICS : VK_PIPELINE_BIND_POINT_COMPUTE; }
+        const std::string& name() const { return name_; }
 
     private:
         std::string name_;

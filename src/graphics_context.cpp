@@ -399,6 +399,11 @@ namespace vhs
         glfwSetCursorPosCallback(window_, glfw_cursor_pos_callback);
         glfwSetMouseButtonCallback(window_, glfw_mouse_button_callback);
 
+        // Set the initial cursor position so the first calcuation of dx/dy isn't wrong.
+        double x, y;
+        glfwGetCursorPos(window_, &x, &y);
+        glfw_cursor_pos_callback(window_, x, y);
+
         int width, height;
         glfwGetFramebufferSize(window_, &width, &height);
 

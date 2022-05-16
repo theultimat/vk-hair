@@ -1,7 +1,6 @@
 #ifndef VHS_SIMULATOR_HPP
 #define VHS_SIMULATOR_HPP
 
-#include "camera.hpp"
 #include "trace.hpp"
 
 
@@ -10,6 +9,7 @@ VHS_TRACE_DECLARE(SIMULATOR);
 
 namespace vhs
 {
+    class Camera;
     class GraphicsContext;
     class KeyboardState;
     struct FrameData;
@@ -21,7 +21,7 @@ namespace vhs
         Simulator() = delete;
         virtual ~Simulator() = default;
 
-        Simulator(GraphicsContext& context);
+        Simulator(GraphicsContext& context, Camera& camera);
 
 
         // Called every iteration of the main loop after polling window events.
@@ -36,7 +36,7 @@ namespace vhs
 
     protected:
         GraphicsContext* context_ = nullptr;
-        Camera camera_;
+        Camera* camera_ = nullptr;
     };
 }
 

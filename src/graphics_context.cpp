@@ -868,4 +868,12 @@ namespace vhs
 
         return { name, *this, config };
     }
+
+
+    // Load shader program from file.
+    ShaderModule GraphicsContext::create_shader_module(std::string_view name, VkShaderStageFlags stage, const char* path)
+    {
+        const auto bytes = load_bytes(path);
+        return { name, *this, bytes.data(), (uint32_t)bytes.size(), stage };
+    }
 }

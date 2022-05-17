@@ -11,6 +11,7 @@
 #include "assert.hpp"
 #include "buffer.hpp"
 #include "io.hpp"
+#include "shader_module.hpp"
 
 
 // Convenience macro to save typing the function name twice.
@@ -19,7 +20,6 @@
 
 namespace vhs
 {
-    class Buffer;
     class CommandPool;
     class Fence;
     class Framebuffer;
@@ -137,6 +137,9 @@ namespace vhs
         {
             return create_device_local_buffer(name, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, data, size);
         }
+
+        // Load shader module from file.
+        ShaderModule create_shader_module(std::string_view name, VkShaderStageFlags stage, const char* path);
 
 
         // Access Vulkan handles.

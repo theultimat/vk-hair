@@ -11,5 +11,7 @@ namespace vhs
     Simulator::Simulator(GraphicsContext& context, Camera& camera) :
         context_ { &context },
         camera_ { &camera }
-    { }
+    {
+        VHS_TRACE(SIMULATOR, "Creating new simulator instance.");
+    }
 }

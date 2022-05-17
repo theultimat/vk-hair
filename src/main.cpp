@@ -8,139 +8,19 @@
 #include <glm/vec3.hpp>
 
 #include "assert.hpp"
-#include "buffer.hpp"
 #include "camera.hpp"
-#include "command_buffer.hpp"
 #include "descriptor_pool.hpp"
 #include "descriptor_set_layout.hpp"
-#include "framebuffer.hpp"
 #include "graphics_context.hpp"
 #include "image.hpp"
 #include "image_view.hpp"
-#include "io.hpp"
 #include "pipeline.hpp"
-#include "render_pass.hpp"
-#include "shader_module.hpp"
+#include "simulator_optimised_gpu.hpp"
 #include "trace.hpp"
 
 
 VHS_TRACE_DEFINE(MAIN);
 
-
-struct Vertex
-{
-    glm::vec2 position;
-    glm::vec3 colour;
-
-    static VkVertexInputBindingDescription vertex_binding_description()
-    {
-        VkVertexInputBindingDescription desc { };
-
-        desc.binding = 0;
-        desc.stride = sizeof(Vertex);
-        desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-        return desc;
-    }
-
-    static std::vector<VkVertexInputAttributeDescription> vertex_attribute_descriptions()
-    {
-        std::vector<VkVertexInputAttributeDescription> attribs(2);
-
-        attribs[0].binding = 0;
-        attribs[0].location = 0;
-        attribs[0].format = VK_FORMAT_R32G32_SFLOAT;
-        attribs[0].offset = offsetof(Vertex, position);
-
-        attribs[1].binding = 0;
-        attribs[1].location = 1;
-        attribs[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-        attribs[1].offset = offsetof(Vertex, colour);
-
-        return attribs;
-    }
-};
-
-
-static vhs::RenderPass create_render_pass(vhs::GraphicsContext& context, const vhs::Image& depth_image)
-{
-    vhs::RenderPassConfig config;
-
-    vhs::AttachmentConfig colour_attachment_config;
-
-    colour_attachment_config.format = context.swapchain_image_format().format;
-    colour_attachment_config.load_op = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    colour_attachment_config.store_op = VK_ATTACHMENT_STORE_OP_STORE;
-    colour_attachment_config.final_layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-    const auto colour_attachment = config.create_attachment(colour_attachment_config);
-
-    vhs::AttachmentConfig depth_attachment_config;
-
-    depth_attachment_config.format = depth_image.format();
-    depth_attachment_config.load_op = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depth_attachment_config.final_layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-    const auto depth_attachment = config.create_attachment(depth_attachment_config);
-
-    vhs::SubpassConfig subpass_config;
-
-    subpass_config.colour_attachments.push_back(colour_attachment);
-    subpass_config.depth_stencil_attachment = depth_attachment;
-
-    const auto subpass = config.create_subpass(subpass_config);
-
-    vhs::SubpassDependencyConfig colour_dependency;
-
-    colour_dependency.src = VK_SUBPASS_EXTERNAL;
-    colour_dependency.dst = subpass;
-    colour_dependency.dst_access_mask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-    vhs::SubpassDependencyConfig depth_dependency;
-
-    depth_dependency.src = VK_SUBPASS_EXTERNAL;
-    depth_dependency.dst = subpass;
-    depth_dependency.src_stage_mask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-    depth_dependency.dst_stage_mask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-    depth_dependency.dst_access_mask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-    config.create_subpass_dependency(colour_dependency);
-    config.create_subpass_dependency(depth_dependency);
-
-    return { "ClearPass", context, config };
-}
-
-static vhs::ShaderModule create_shader_module(const char* name, vhs::GraphicsContext& context, VkShaderStageFlags stage, const char* path)
-{
-    const auto bytes = vhs::load_bytes(path);
-    return { name, context, bytes.data(), (uint32_t)bytes.size(), stage };
-}
-
-static vhs::Pipeline create_pipeline(const char* name, vhs::GraphicsContext& context, vhs::RenderPass& pass,
-    const std::vector<vhs::ShaderModule*>& shaders)
-{
-    vhs::PipelineColourBlendAttachmentConfig attachment;
-
-    const VkPushConstantRange push_constants
-    {
-        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-        .size = sizeof(glm::mat4),
-        .offset = 0
-    };
-
-    vhs::GraphicsPipelineConfig config;
-
-    config.shader_modules = shaders;
-    config.colour_blend_attachments.push_back(attachment);
-    config.push_constants.push_back(push_constants);
-    config.cull_mode = VK_CULL_MODE_NONE;
-    config.viewport = context.viewport();
-
-    config.vertex_binding_descriptions.push_back(Vertex::vertex_binding_description());
-    config.vertex_attribute_descriptions = Vertex::vertex_attribute_descriptions();
-
-    return { name, context, pass, config };
-}
 
 static vhs::Pipeline create_pipeline(const char* name, vhs::GraphicsContext& context, vhs::ShaderModule& shader, vhs::DescriptorSetLayout& desc_layout)
 {
@@ -150,26 +30,6 @@ static vhs::Pipeline create_pipeline(const char* name, vhs::GraphicsContext& con
     config.descriptor_set_layouts.push_back(desc_layout.vk_descriptor_set_layout());
 
     return { name, context, config };
-}
-
-static vhs::Image create_depth_image(vhs::GraphicsContext& context)
-{
-    vhs::ImageConfig config;
-
-    config.format = VK_FORMAT_D32_SFLOAT;
-    config.extent = { context.viewport().extent.width, context.viewport().extent.height, 1 };
-    config.usage_flags = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-
-    return { "DepthImage", context, config };
-}
-
-static vhs::ImageView create_depth_image_view(vhs::GraphicsContext& context, vhs::Image& image)
-{
-    vhs::ImageViewConfig config;
-
-    config.aspect_mask = VK_IMAGE_ASPECT_DEPTH_BIT;
-
-    return { "DepthImageView", context, image, config };
 }
 
 static vhs::DescriptorSetLayout create_descriptor_set_layout(vhs::GraphicsContext& context)
@@ -225,7 +85,7 @@ static void test_compute(vhs::GraphicsContext& context)
     data.clear();
     data.resize(10, 0);
 
-    auto kernel = create_shader_module("ComputeTestKernel", context, VK_SHADER_STAGE_COMPUTE_BIT, "data/shaders/comptest.spv");
+    auto kernel = context.create_shader_module("ComputeTestKernel", VK_SHADER_STAGE_COMPUTE_BIT, "data/shaders/comptest.spv");
     auto desc_pool = create_descriptor_pool(context);
     auto desc_layout = create_descriptor_set_layout(context);
 
@@ -267,78 +127,54 @@ int main()
 
     test_compute(context);
 
-    auto depth_image = create_depth_image(context);
-    auto depth_image_view = create_depth_image_view(context, depth_image);
-
-    auto pass = create_render_pass(context, depth_image);
-    auto framebuffers = context.create_swapchain_framebuffers(pass, &depth_image_view);
-
-    auto vs = create_shader_module("Vert", context, VK_SHADER_STAGE_VERTEX_BIT, "data/shaders/vs.spv");
-    auto fs = create_shader_module("Frag", context, VK_SHADER_STAGE_FRAGMENT_BIT, "data/shaders/fs.spv");
-
-    auto pipeline = create_pipeline("TrianglePipeline", context, pass, { &vs, &fs });
-
-    const std::vector<Vertex> vertices
-    {
-        { { 1.0f, 1.0f }, { 1.0f, 0.0f, 0.0f } },
-        { { -1.0f, 1.0f }, { 0.0f, 1.0f, 0.0f } },
-        { { 0.0f, -1.0f }, { 0.0f, 0.0f, 1.0f } }
-    };
-
-    auto vbo = context.create_vertex_buffer("Vertices", vertices.data(), vertices.size());
-
     vhs::Camera camera { context.viewport().extent.width, context.viewport().extent.height, glm::vec3 { -3.0f, 0.5f, 0.0f } };
+
+    vhs::SimulatorOptimisedGpu sim { context, camera };
 
     VHS_TRACE(MAIN, "Initialisation complete, entering main loop.");
 
-    auto last_time = glfwGetTime();
-    auto last_ms = context.mouse_state();
+    const auto ticks_per_second = 32.0f;
+    const auto seconds_per_tick = 1.0f / ticks_per_second;
+
+    auto prev_mouse = context.mouse_state();
+
+    double previous_time = glfwGetTime();
+    double latency_time = 0;
 
     while (context.is_window_open())
     {
+        // Calculate time since last iteration and add to latency accumulator.
+        const auto current_time = glfwGetTime();
+        const auto elapsed_time = current_time - previous_time;
+
+        previous_time = current_time;
+        latency_time += elapsed_time;
+
+        // Process window events in the camera and simulator.
         context.poll_window_events();
 
-        if (context.keyboard_state().down(GLFW_KEY_ESCAPE))
+        const auto& mouse = context.mouse_state();
+        const auto& keyboard = context.keyboard_state();
+
+        const auto dx = mouse.x() - prev_mouse.x();
+        const auto dy = mouse.y() - prev_mouse.y();
+
+        camera.process_input(keyboard, dx, dy);
+        sim.process_input(keyboard);
+
+        // Catch up in fixed-step updates.
+        while (latency_time > seconds_per_tick)
         {
-            context.close_window();
-            break;
+            camera.update(seconds_per_tick);
+            sim.update(seconds_per_tick);
+
+            latency_time -= seconds_per_tick;
         }
 
-        const auto current_time = glfwGetTime();
-        const auto dt = current_time - last_time;
-
-        const auto dx = context.mouse_state().x() - last_ms.x();
-        const auto dy = context.mouse_state().y() - last_ms.y();
-
-        camera.process_input(context.keyboard_state(), dx, dy);
-        camera.update(dt);
-
-        last_time = current_time;
-        last_ms = context.mouse_state();
-
+        // Grab the frame for rendering and ask the simulator to draw it.
         auto& frame = context.begin_frame();
 
-        const auto model = glm::rotate(glm::mat4 { 1.0f }, (float)glfwGetTime(), glm::vec3(0, 1, 0));
-        const auto mvp = camera.projection() * camera.view() * model;
-
-        vhs::CommandBuffer clear_cmd(frame.command_buffers[0]);
-
-        const VkClearValue clears[] =
-        {
-            { .color = { .float32 = { 0, 0, (float)std::abs(std::sin(glfwGetTime())), 1 } } },
-            { .depthStencil = { .depth = 1.0f } }
-        };
-
-        clear_cmd.begin_render_pass(pass, framebuffers[frame.swapchain_image_index], context.viewport(), clears, std::size(clears));
-
-        clear_cmd.bind_pipeline(pipeline);
-        clear_cmd.bind_vertex_buffer(vbo);
-        clear_cmd.push_constants(pipeline, VK_SHADER_STAGE_VERTEX_BIT, &mvp, sizeof mvp);
-        clear_cmd.draw(3);
-
-        clear_cmd.end_render_pass();
-
-        clear_cmd.end();
+        sim.draw(frame, latency_time * ticks_per_second);
 
         context.end_frame();
     }

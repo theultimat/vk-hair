@@ -150,7 +150,8 @@ int main()
         previous_time = current_time;
         latency_time += elapsed_time;
 
-        // Process window events in the camera and simulator.
+        // Process window events in the camera and simulator. We update the camera at a variable tick
+        // to keep the motion smooth - it doesn't need to be fixed as we aren't doing any physics.
         context.poll_window_events();
 
         const auto& mouse = context.mouse_state();
@@ -159,15 +160,17 @@ int main()
         const auto dx = mouse.x() - prev_mouse.x();
         const auto dy = mouse.y() - prev_mouse.y();
 
+        prev_mouse = mouse;
+
         camera.process_input(keyboard, dx, dy);
+        camera.update(elapsed_time);
+
         sim.process_input(keyboard);
 
         // Catch up in fixed-step updates.
         while (latency_time > seconds_per_tick)
         {
-            camera.update(seconds_per_tick);
             sim.update(seconds_per_tick);
-
             latency_time -= seconds_per_tick;
         }
 

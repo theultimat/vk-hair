@@ -208,6 +208,9 @@ namespace vhs
         // Disable back-face culling so we can always see the rotating triangle.
         config.cull_mode = VK_CULL_MODE_NONE;
 
+        // FIXME Switch to points for now until we get triangle generation compute shader up and running.
+        config.primitive_topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
+
         // Add the vertex and fragment shaders. It's okay for these to be destroyed at the end of the function as
         // the pipeline has been finalised.
         auto vs = context_->create_shader_module("VertexShader", VK_SHADER_STAGE_VERTEX_BIT, "data/shaders/vs.spv");

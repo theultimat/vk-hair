@@ -253,7 +253,7 @@ namespace vhs
                 continue;
             if (!check_swapchain_support(device))
                 continue;
-            if (!physical_device_features_.tessellationShader)
+            if (!physical_device_features_.largePoints)
                 continue;
 
             // Make sure we have all the required queues etc.
@@ -327,7 +327,7 @@ namespace vhs
 
         VkPhysicalDeviceFeatures features { };
 
-        // TODO Add the required features.
+        features.largePoints = true;
 
         VkDeviceCreateInfo create_info { };
 

@@ -14,4 +14,6 @@ void main()
 {
     gl_Position = u_PushConstants.ModelViewProjection * vec4(vsIn_Position, 0, 1);
     vsOut_Colour = vsIn_Colour;
+
+    gl_PointSize = 8.0f;
 }

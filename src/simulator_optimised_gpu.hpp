@@ -36,12 +36,21 @@ namespace vhs
         void draw(FrameData& frame, float interp) final;
 
     private:
+        // Hair properties.
+        uint32_t hair_number_of_strands_;
+        uint32_t hair_particles_per_strand_;
+        uint32_t hair_total_particles_;
+        float hair_particle_separation_;
+
         // RAII initialisation helper functions.
         Image create_depth_image();
         ImageView create_depth_image_view();
         RenderPass create_render_pass();
         Pipeline create_draw_pipeline();
         Buffer create_vertex_buffer();
+
+        // Create and return the particles for the hair.
+        std::vector<float> grow_hairs();
 
         // Depth buffer.
         Image depth_image_;

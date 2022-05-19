@@ -1,4 +1,5 @@
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/random.hpp>
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 
@@ -15,8 +16,7 @@ namespace vhs
     // Vertex type for rendering.
     struct Vertex
     {
-        glm::vec2 position;
-        glm::vec3 colour;
+        glm::vec3 position;
 
         static VkVertexInputBindingDescription vertex_binding_description()
         {
@@ -31,17 +31,12 @@ namespace vhs
 
         static std::vector<VkVertexInputAttributeDescription> vertex_attribute_descriptions()
         {
-            std::vector<VkVertexInputAttributeDescription> attribs(2);
+            std::vector<VkVertexInputAttributeDescription> attribs(1);
 
             attribs[0].binding = 0;
             attribs[0].location = 0;
-            attribs[0].format = VK_FORMAT_R32G32_SFLOAT;
+            attribs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
             attribs[0].offset = offsetof(Vertex, position);
-
-            attribs[1].binding = 0;
-            attribs[1].location = 1;
-            attribs[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-            attribs[1].offset = offsetof(Vertex, colour);
 
             return attribs;
         }
@@ -101,7 +96,7 @@ namespace vhs
         cmd.bind_pipeline(draw_pipeline_);
         cmd.push_constants(draw_pipeline_, VK_SHADER_STAGE_VERTEX_BIT, &mvp, sizeof mvp);
         cmd.bind_vertex_buffer(vbo_);
-        cmd.draw(3);
+        cmd.draw(hair_total_particles_);
         cmd.end_render_pass();
 
         cmd.end();
@@ -228,13 +223,44 @@ namespace vhs
 
     Buffer SimulatorOptimisedGpu::create_vertex_buffer()
     {
-        const std::vector<Vertex> vertices
-        {
-            { { 1.0f, 1.0f }, { 1.0f, 0.0f, 0.0f } },
-            { { -1.0f, 1.0f }, { 0.0f, 1.0f, 0.0f } },
-            { { 0.0f, -1.0f }, { 0.0f, 0.0f, 1.0f } }
-        };
+        const auto particles = grow_hairs();
 
-        return context_->create_vertex_buffer("Vertices", vertices.data(), vertices.size());
+        return context_->create_vertex_buffer("Particles", particles.data(), particles.size());
+    }
+
+
+    // Hair configuration.
+    std::vector<float> SimulatorOptimisedGpu::grow_hairs()
+    {
+        // Load the root mesh for growing the hairs from.
+        std::vector<RootVertex> root_vertices;
+        std::vector<uint16_t> root_indices;
+
+        load_obj("data/obj/root.obj", root_vertices, root_indices);
+
+        // Set the initial hair properties.
+        hair_number_of_strands_ = root_vertices.size();
+        hair_particles_per_strand_ = 8;
+        hair_total_particles_ = hair_number_of_strands_ * hair_particles_per_strand_;
+        hair_particle_separation_ = 0.08f;
+
+        // Reserve space for the hair state data.
+        std::vector<float> hair_data;
+        hair_data.reserve(hair_total_particles_ * 3);
+
+        // Iterate through the roots and grow hairs from them.
+        for (const auto& vertex : root_vertices)
+        {
+            for (uint32_t i = 0; i < hair_particles_per_strand_; ++i)
+            {
+                const auto position = vertex.position + vertex.normal * (hair_particle_separation_ * i);
+
+                hair_data.push_back(position.x);
+                hair_data.push_back(position.y);
+                hair_data.push_back(position.z);
+            }
+        }
+
+        return hair_data;
     }
 }

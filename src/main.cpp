@@ -127,7 +127,7 @@ int main()
 
     test_compute(context);
 
-    vhs::Camera camera { context.viewport().extent.width, context.viewport().extent.height, glm::vec3 { -3.0f, 0.5f, 0.0f } };
+    vhs::Camera camera { context.viewport().extent.width, context.viewport().extent.height, glm::vec3 { -0.75f, -0.25f, 0.0f } };
 
     vhs::SimulatorOptimisedGpu sim { context, camera };
 

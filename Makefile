@@ -13,6 +13,9 @@ EXECUTABLE := $(BUILD_ROOT)/bin/vk-hair.out
 SHADER_SOURCES := $(shell find $(DATA_ROOT) -type f -name '*.glsl')
 SHADER_OBJECTS := $(patsubst $(DATA_ROOT)/%.glsl,$(BUILD_ROOT)/bin/data/%.spv,$(SHADER_SOURCES))
 
+MODEL_SOURCES := $(shell find $(DATA_ROOT) -type f -name '*.obj')
+MODEL_OBJECTS := $(patsubst $(DATA_ROOT)/%.obj,$(BUILD_ROOT)/bin/data/%.obj,$(MODEL_SOURCES))
+
 PACKAGES := vulkan glfw3 glm fmt
 
 CXX := clang++
@@ -23,7 +26,7 @@ LDFLAGS := $(shell pkg-config --libs $(PACKAGES))
 # Required for VMA, unfortunately can't disable this using a pragma for a single file.
 CXXFLAGS += -Wno-nullability-completeness
 
-all: $(SHADER_OBJECTS) $(OBJECTS) $(EXECUTABLE)
+all: $(SHADER_OBJECTS) $(MODEL_OBJECTS) $(OBJECTS) $(EXECUTABLE)
 
 -include $(DEPENDS)
 
@@ -42,6 +45,10 @@ $(filter %/fs.spv,$(SHADER_OBJECTS)): SHADER_STAGE := frag
 $(BUILD_ROOT)/bin/data/%.spv: $(DATA_ROOT)/%.glsl
 	@mkdir -p $(@D)
 	glslc -fshader-stage=$(SHADER_STAGE) -o $@ $<
+
+$(BUILD_ROOT)/bin/data/%.obj: $(DATA_ROOT)/%.obj
+	@mkdir -p $(@D)
+	cp $< $@
 
 run: all
 	(cd $(dir $(EXECUTABLE)); ./$(notdir $(EXECUTABLE)) $(ARGS))

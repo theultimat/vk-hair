@@ -6,6 +6,7 @@
 #include <vector>
 
 #include <GLFW/glfw3.h>
+#include <glm/vec3.hpp>
 
 
 namespace vhs
@@ -64,8 +65,17 @@ namespace vhs
         double y_ = 0;
     };
 
-    // Load bytes from file.
+    // Load data from file.
     std::vector<std::byte> load_bytes(const std::filesystem::path& path);
+    std::string load_string(const std::filesystem::path& path);
+
+    struct RootVertex
+    {
+        glm::vec3 position;
+        glm::vec3 normal;
+    };
+
+    void load_obj(const std::filesystem::path& path, std::vector<RootVertex>& vertices, std::vector<uint16_t>& indices);
 }
 
 #endif

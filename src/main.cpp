@@ -56,21 +56,6 @@ static vhs::DescriptorPool create_descriptor_pool(vhs::GraphicsContext& context)
     return { "DescPool", context, config };
 }
 
-    struct DescriptorSetBufferConfig
-    {
-        uint32_t binding;
-        VkDeviceSize size;
-        VkDescriptorType type;
-        VkBuffer buffer = VK_NULL_HANDLE;
-        VkDeviceSize offset = 0;
-    };
-
-    // Configuration for the descriptor set allocation.
-    struct DescriptorSetConfig
-    {
-        std::vector<DescriptorSetBufferConfig> buffers;
-    };
-
 static void test_compute(vhs::GraphicsContext& context)
 {
     VHS_TRACE(MAIN, "Starting compute test.");

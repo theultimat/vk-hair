@@ -52,6 +52,9 @@ namespace vhs
         DescriptorPool& operator=(DescriptorPool&& other);
 
 
+        VkDescriptorPool vk_descriptor_pool() const { return pool_; }
+
+
         // Allocate a new descriptor set from the pool and configure it.
         VkDescriptorSet allocate(const DescriptorSetLayout& layout, const DescriptorSetConfig& config);
 

@@ -2,6 +2,9 @@
 #include <glm/gtc/random.hpp>
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
+#include <imgui/imgui.h>
+#include <imgui/backends/imgui_impl_glfw.h>
+#include <imgui/backends/imgui_impl_vulkan.h>
 
 #include "assert.hpp"
 #include "camera.hpp"
@@ -56,6 +59,13 @@ namespace vhs
 
         // Now that everything else is done we can create the framebuffers.
         framebuffers_ = context.create_swapchain_framebuffers(render_pass_, &depth_image_view_);
+
+        initialise_imgui(render_pass_);
+    }
+
+    SimulatorOptimisedGpu::~SimulatorOptimisedGpu()
+    {
+        terminate_imgui();
     }
 
 
@@ -73,6 +83,9 @@ namespace vhs
     void SimulatorOptimisedGpu::draw(FrameData& frame, float interp)
     {
         (void)interp;
+
+        // Prepare the user interface draw commands.
+        draw_imgui();
 
         // Rotate the triangle and calculate the model view projection matrix.
         const auto time = (float)glfwGetTime();
@@ -97,8 +110,11 @@ namespace vhs
         cmd.push_constants(draw_pipeline_, VK_SHADER_STAGE_VERTEX_BIT, &mvp, sizeof mvp);
         cmd.bind_vertex_buffer(vbo_);
         cmd.draw(hair_total_particles_);
-        cmd.end_render_pass();
 
+        // Shove the ImGui rendering into the end of the render pass.
+        ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), frame.command_buffers[0]);
+
+        cmd.end_render_pass();
         cmd.end();
     }
 
@@ -262,5 +278,16 @@ namespace vhs
         }
 
         return hair_data;
+    }
+
+    // ImGui.
+    void SimulatorOptimisedGpu::draw_imgui()
+    {
+        ImGui_ImplVulkan_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+
+        ImGui::NewFrame();
+        ImGui::ShowDemoWindow();
+        ImGui::Render();
     }
 }

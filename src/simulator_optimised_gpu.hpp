@@ -21,9 +21,9 @@ namespace vhs
         SimulatorOptimisedGpu() = delete;
         SimulatorOptimisedGpu(const SimulatorOptimisedGpu&) = delete;
         SimulatorOptimisedGpu(SimulatorOptimisedGpu&&) = default;
-        ~SimulatorOptimisedGpu() = default;
 
         SimulatorOptimisedGpu(GraphicsContext& context, Camera& camera);
+        ~SimulatorOptimisedGpu();
 
 
         SimulatorOptimisedGpu& operator=(const SimulatorOptimisedGpu&) = delete;
@@ -51,6 +51,9 @@ namespace vhs
 
         // Create and return the particles for the hair.
         std::vector<float> grow_hairs();
+
+        // Draw the ImGui components.
+        void draw_imgui();
 
         // Depth buffer.
         Image depth_image_;

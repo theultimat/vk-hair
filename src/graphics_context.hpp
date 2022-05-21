@@ -98,6 +98,7 @@ namespace vhs
         // Common immediate commands.
         void copy_buffer(Buffer& dst, Buffer& src);
         void compute(Pipeline& pipeline, const Buffer& output, uint32_t num_groups, const VkDescriptorSet* sets, uint32_t num_sets);
+        void upload_imgui_fonts();
 
         // Window functions.
         bool is_window_open() const { return !glfwWindowShouldClose(window_); }
@@ -143,18 +144,25 @@ namespace vhs
 
 
         // Access Vulkan handles.
+        VkInstance vk_instance() const { return instance_; }
+        VkPhysicalDevice vk_physical_device() const { return physical_device_; }
         VkDevice vk_device() const { return device_; }
         VmaAllocator vma_allocator() const { return allocator_; }
 
 
         // Other accessors.
         uint32_t graphics_queue_family() const { return graphics_queue_family_; }
+        VkQueue graphics_queue() const { return graphics_queue_; }
 
         VkSurfaceFormatKHR swapchain_image_format() const { return surface_format_; }
         VkRect2D viewport() const { return { { 0, 0 }, surface_extent_ }; }
+        uint32_t num_swapchain_images() const { return num_swapchain_images_; }
+        uint32_t min_num_swapchain_images() const { return surface_capabilities_.minImageCount; }
 
         const KeyboardState& keyboard_state() const { return keyboard_state_; }
         const MouseState& mouse_state() const { return mouse_state_; }
+
+        GLFWwindow* glfw_window() const { return window_; }
 
     private:
         // VkInstance management.

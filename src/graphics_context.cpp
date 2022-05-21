@@ -6,6 +6,7 @@
 #include <unordered_set>
 
 #include <fmt/format.h>
+#include <imgui/backends/imgui_impl_vulkan.h>
 
 #include "command_buffer.hpp"
 #include "command_pool.hpp"
@@ -814,6 +815,27 @@ namespace vhs
         cmd.bind_descriptor_sets(pipeline, sets, num_sets);
         cmd.dispatch(num_groups);
         cmd.barrier(barrier);
+        cmd.end();
+
+        QueueSubmitConfig submit;
+
+        submit.command_buffers.push_back(immediate_command_buffer_);
+        submit.signal_fence = immediate_command_fence_->vk_fence();
+
+        queue_submit(graphics_queue_, submit);
+
+        immediate_command_fence_->wait();
+        immediate_command_fence_->reset();
+        immediate_command_pool_->reset();
+    }
+
+    void GraphicsContext::upload_imgui_fonts()
+    {
+        VHS_TRACE(GRAPHICS_CONTEXT, "Uploading ImGui font data.");
+
+        CommandBuffer cmd { immediate_command_buffer_ };
+
+        ImGui_ImplVulkan_CreateFontsTexture(immediate_command_buffer_);
         cmd.end();
 
         QueueSubmitConfig submit;

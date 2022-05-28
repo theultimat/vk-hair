@@ -51,8 +51,8 @@ namespace vhs
         Camera* camera_ = nullptr;
 
     private:
-        // RAII initialisers.
-        DescriptorPool create_imgui_desc_pool();
+        // ImGui setup.
+        void create_imgui_desc_pool();
 
         // ImGui members.
         DescriptorPool imgui_desc_pool_;

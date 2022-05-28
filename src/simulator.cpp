@@ -16,10 +16,11 @@ namespace vhs
 {
     Simulator::Simulator(GraphicsContext& context, Camera& camera) :
         context_ { &context },
-        camera_ { &camera },
-        imgui_desc_pool_ { create_imgui_desc_pool() }
+        camera_ { &camera }
     {
         VHS_TRACE(SIMULATOR, "Creating new simulator instance.");
+
+        create_imgui_desc_pool();
     }
 
     Simulator::~Simulator()
@@ -28,8 +29,13 @@ namespace vhs
     }
 
 
-    // RAII initialisers.
-    DescriptorPool Simulator::create_imgui_desc_pool()
+    // ImGui.
+    static void imgui_check_vk(VkResult result)
+    {
+        VHS_CHECK_VK(result);
+    }
+
+    void Simulator::create_imgui_desc_pool()
     {
         // Configure descriptor pool sizes based on ImGui demo.
         DescriptorPoolConfig config;
@@ -46,14 +52,7 @@ namespace vhs
         config.sizes[VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC] = 1000;
         config.sizes[VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT] = 1000;
 
-        return { "ImguiDescPool", *context_, config };
-    }
-
-
-    // ImGui.
-    static void imgui_check_vk(VkResult result)
-    {
-        VHS_CHECK_VK(result);
+        imgui_desc_pool_ = { "ImguiDescPool", *context_, config };
     }
 
     void Simulator::initialise_imgui(RenderPass& pass)

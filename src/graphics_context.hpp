@@ -139,6 +139,12 @@ namespace vhs
             return create_device_local_buffer(name, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, data, size);
         }
 
+        template <class T>
+        Buffer create_index_buffer(std::string_view name, const T* data, uint32_t size)
+        {
+            return create_device_local_buffer(name, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, data, size);
+        }
+
         // Load shader module from file.
         ShaderModule create_shader_module(std::string_view name, VkShaderStageFlags stage, const char* path);
 

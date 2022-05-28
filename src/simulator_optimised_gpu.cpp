@@ -52,14 +52,17 @@ namespace vhs
     {
         VHS_TRACE(SIMULATOR, "Switched to OptimisedGpu.");
 
-        // Create the components we need for drawing.
+        initialise_properties();
+        initialise_particles();
+
         create_depth_buffer();
         create_render_pass();
         create_draw_pipeline();
-        create_vertex_buffer();
 
-        // Now that everything else is done we can create the framebuffers.
         framebuffers_ = context.create_swapchain_framebuffers(render_pass_, &depth_image_view_);
+
+        create_vertex_buffer();
+        create_index_buffer();
 
         initialise_imgui(render_pass_);
     }
@@ -92,7 +95,7 @@ namespace vhs
 
         // Rotate the triangle and calculate the model view projection matrix.
         const auto time = (float)glfwGetTime();
-        const auto model = glm::rotate(glm::mat4 { 1 }, time, glm::vec3 { 0, 1, 0 });
+        const auto model = glm::mat4 { 1 };
         const auto mvp = camera_->projection() * camera_->view() * model;
 
         // Prepare the two clears for the draw. We clear the colour attachment with a fade between blue and
@@ -112,7 +115,8 @@ namespace vhs
         cmd.bind_pipeline(draw_pipeline_);
         cmd.push_constants(draw_pipeline_, VK_SHADER_STAGE_VERTEX_BIT, &mvp, sizeof mvp);
         cmd.bind_vertex_buffer(vbo_);
-        cmd.draw(hair_total_particles_);
+        cmd.bind_index_buffer(ebo_);
+        cmd.draw_indexed(hair_indices_.size());
 
         // Shove the ImGui rendering into the end of the render pass.
         ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), frame.command_buffers[0]);
@@ -225,8 +229,9 @@ namespace vhs
         // Disable back-face culling so we can always see the rotating triangle.
         config.cull_mode = VK_CULL_MODE_NONE;
 
-        // FIXME Switch to points for now until we get triangle generation compute shader up and running.
-        config.primitive_topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
+        // Each strand of hair is drawn as a triangle strip with indices being separated by the restart value.
+        config.primitive_topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+        config.primitive_restart = VK_TRUE;
 
         // Add the vertex and fragment shaders. It's okay for these to be destroyed at the end of the function as
         // the pipeline has been finalised.
@@ -247,45 +252,116 @@ namespace vhs
     // Buffer management.
     void SimulatorOptimisedGpu::create_vertex_buffer()
     {
-        const auto particles = grow_hairs();
+        // Simulate what will be done in the vertex creation compute shader so we can confirm it works before switching to
+        // implementing it in GLSL.
+        std::vector<glm::vec3> vertices(2 * hair_total_particles_);
 
-        vbo_ = context_->create_vertex_buffer("Particles", particles.data(), particles.size());
+        for (uint32_t i = 0; i < hair_number_of_strands_; ++i)
+        {
+            for (uint32_t j = 0; j < hair_particles_per_strand_; ++j)
+            {
+                const auto gid = i * hair_particles_per_strand_ + j;
+                const auto end = (gid % hair_total_particles_) == (hair_total_particles_ - 1);
+
+                // Read particle position from the input buffer.
+                glm::vec3 position;
+
+                position.x = ssbo_hair_data_.at(gid + hair_total_particles_ * 0);
+                position.y = ssbo_hair_data_.at(gid + hair_total_particles_ * 1);
+                position.z = ssbo_hair_data_.at(gid + hair_total_particles_ * 2);
+
+                // Calculate vector perpendicular to camera and hair direction.
+                glm::vec3 v0, v1;
+
+                if (end)
+                {
+                    v0.x = ssbo_hair_data_.at(gid - 1 + hair_total_particles_ * 0);
+                    v0.y = ssbo_hair_data_.at(gid - 1 + hair_total_particles_ * 1);
+                    v0.z = ssbo_hair_data_.at(gid - 1 + hair_total_particles_ * 2);
+
+                    v1 = position;
+                }
+                else
+                {
+                    v0 = position;
+
+                    v1.x = ssbo_hair_data_.at(gid + 1 + hair_total_particles_ * 0);
+                    v1.y = ssbo_hair_data_.at(gid + 1 + hair_total_particles_ * 1);
+                    v1.z = ssbo_hair_data_.at(gid + 1 + hair_total_particles_ * 2);
+                }
+
+                const auto perp = hair_draw_radius_ * glm::normalize(glm::cross(v1 - v0, camera_->front()));
+
+                // Create the two vertices.
+                vertices.at(2 * gid + 0) = position - perp;
+                vertices.at(2 * gid + 1) = position + perp;
+            }
+        }
+
+
+        vbo_ = context_->create_vertex_buffer("Vertices", vertices.data(), vertices.size());
+    }
+
+    void SimulatorOptimisedGpu::create_index_buffer()
+    {
+        // All hairs are rendered as triangle strips using a single index buffer. We split up the indices for each
+        // hair by using the primitive restart.
+        hair_indices_.reserve(2 * hair_total_particles_ + hair_number_of_strands_);
+
+        uint32_t index = 0;
+
+        for (uint32_t i = 0; i < hair_number_of_strands_; ++i)
+        {
+            // Add the indices for the strand. Each particle is expanded into two vertices.
+            for (uint32_t j = 0; j < hair_particles_per_strand_; ++j)
+            {
+                hair_indices_.push_back(index++);
+                hair_indices_.push_back(index++);
+            }
+
+            // Add the primitive restart.
+            hair_indices_.push_back(~0);
+        }
+
+        ebo_ = context_->create_index_buffer("Indices", hair_indices_.data(), hair_indices_.size());
     }
 
 
     // Hair configuration.
-    std::vector<float> SimulatorOptimisedGpu::grow_hairs()
+    void SimulatorOptimisedGpu::initialise_properties()
     {
-        // Load the root mesh for growing the hairs from.
-        std::vector<RootVertex> root_vertices;
-        std::vector<uint16_t> root_indices;
+        // Load the root mesh data so we know how many base strands are required.
+        load_obj("data/obj/root.obj", hair_root_vertices_, hair_root_indices_);
 
-        load_obj("data/obj/root.obj", root_vertices, root_indices);
-
-        // Set the initial hair properties.
-        hair_number_of_strands_ = root_vertices.size();
+        // Use this to set the initial properties.
+        hair_number_of_strands_ = hair_root_vertices_.size();
         hair_particles_per_strand_ = 8;
         hair_total_particles_ = hair_number_of_strands_ * hair_particles_per_strand_;
         hair_particle_separation_ = 0.08f;
+        hair_draw_radius_ = 0.0005f;
 
-        // Reserve space for the hair state data.
-        std::vector<float> hair_data;
-        hair_data.reserve(hair_total_particles_ * 3);
+        buf_total_size_ = hair_total_particles_ * 3;
+    }
 
-        // Iterate through the roots and grow hairs from them.
-        for (const auto& vertex : root_vertices)
+    void SimulatorOptimisedGpu::initialise_particles()
+    {
+        // Start with all state at zero.
+        ssbo_hair_data_.resize(buf_total_size_, 0.0f);
+
+        // Grow hairs from the roots along their normals.
+        for (uint32_t i = 0; i < hair_number_of_strands_; ++i)
         {
-            for (uint32_t i = 0; i < hair_particles_per_strand_; ++i)
-            {
-                const auto position = vertex.position + vertex.normal * (hair_particle_separation_ * i);
+            const auto& root = hair_root_vertices_.at(i);
 
-                hair_data.push_back(position.x);
-                hair_data.push_back(position.y);
-                hair_data.push_back(position.z);
+            for (uint32_t j = 0; j < hair_particles_per_strand_; ++j)
+            {
+                const auto position = root.position + root.normal * (hair_particle_separation_ * j);
+
+                ssbo_hair_data_.at(i * hair_particles_per_strand_ + j + hair_total_particles_ * 0) = position.x;
+                ssbo_hair_data_.at(i * hair_particles_per_strand_ + j + hair_total_particles_ * 1) = position.y;
+                ssbo_hair_data_.at(i * hair_particles_per_strand_ + j + hair_total_particles_ * 2) = position.z;
             }
         }
-
-        return hair_data;
     }
 
     // ImGui.

@@ -6,6 +6,7 @@
 #include "framebuffer.hpp"
 #include "image.hpp"
 #include "image_view.hpp"
+#include "io.hpp"
 #include "pipeline.hpp"
 #include "render_pass.hpp"
 #include "shader_module.hpp"
@@ -45,9 +46,11 @@ namespace vhs
 
         // Buffers.
         void create_vertex_buffer();
+        void create_index_buffer();
 
-        // Create and return the particles for the hair.
-        std::vector<float> grow_hairs();
+        // Hair management.
+        void initialise_properties();
+        void initialise_particles();
 
         // Draw the ImGui components.
         void draw_imgui();
@@ -65,12 +68,22 @@ namespace vhs
 
         // Vertex buffer for testing.
         Buffer vbo_;
+        Buffer ebo_;
 
         // Hair properties.
+        std::vector<RootVertex> hair_root_vertices_;
+        std::vector<uint16_t> hair_root_indices_;
+
         uint32_t hair_number_of_strands_;
         uint32_t hair_particles_per_strand_;
         uint32_t hair_total_particles_;
         float hair_particle_separation_;
+        float hair_draw_radius_;
+
+        std::vector<float> ssbo_hair_data_;
+        std::vector<uint32_t> hair_indices_;
+
+        uint32_t buf_total_size_;
     };
 }
 

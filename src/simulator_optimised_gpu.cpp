@@ -48,14 +48,15 @@ namespace vhs
 
     // Constructor.
     SimulatorOptimisedGpu::SimulatorOptimisedGpu(GraphicsContext& context, Camera& camera) :
-        Simulator { context, camera },
-        depth_image_ { create_depth_image() },
-        depth_image_view_ { create_depth_image_view() },
-        render_pass_ { create_render_pass() },
-        draw_pipeline_ { create_draw_pipeline() },
-        vbo_ { create_vertex_buffer() }
+        Simulator { context, camera }
     {
         VHS_TRACE(SIMULATOR, "Switched to OptimisedGpu.");
+
+        // Create the components we need for drawing.
+        create_depth_buffer();
+        create_render_pass();
+        create_draw_pipeline();
+        create_vertex_buffer();
 
         // Now that everything else is done we can create the framebuffers.
         framebuffers_ = context.create_swapchain_framebuffers(render_pass_, &depth_image_view_);
@@ -65,6 +66,8 @@ namespace vhs
 
     SimulatorOptimisedGpu::~SimulatorOptimisedGpu()
     {
+        VHS_TRACE(SIMULATOR, "Destroying OptimisedGpu.");
+
         terminate_imgui();
     }
 
@@ -119,28 +122,31 @@ namespace vhs
     }
 
 
-    // RAII helper functions.
-    Image SimulatorOptimisedGpu::create_depth_image()
+    // Depth buffer management.
+    void SimulatorOptimisedGpu::create_depth_buffer()
     {
-        ImageConfig config;
+        {
+            ImageConfig config;
 
-        config.format = VK_FORMAT_D32_SFLOAT;
-        config.extent = { context_->viewport().extent.width, context_->viewport().extent.height, 1 };
-        config.usage_flags = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+            config.format = VK_FORMAT_D32_SFLOAT;
+            config.extent = { context_->viewport().extent.width, context_->viewport().extent.height, 1 };
+            config.usage_flags = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 
-        return { "DepthImage", *context_, config };
+            depth_image_ = { "DepthImage", *context_, config };
+        }
+
+        {
+            ImageViewConfig config;
+
+            config.aspect_mask = VK_IMAGE_ASPECT_DEPTH_BIT;
+
+            depth_image_view_ = { "DepthImageView", *context_, depth_image_, config };
+        }
     }
 
-    ImageView SimulatorOptimisedGpu::create_depth_image_view()
-    {
-        ImageViewConfig config;
 
-        config.aspect_mask = VK_IMAGE_ASPECT_DEPTH_BIT;
-
-        return { "DepthImageView", *context_, depth_image_, config };
-    }
-
-    RenderPass SimulatorOptimisedGpu::create_render_pass()
+    // Render pass and draw pipeline.
+    void SimulatorOptimisedGpu::create_render_pass()
     {
         RenderPassConfig config;
 
@@ -191,10 +197,10 @@ namespace vhs
 
         config.create_subpass_dependency(depth_dependency);
 
-        return { "RenderPass", *context_, config };
+        render_pass_ = { "RenderPass", *context_, config };
     }
 
-    Pipeline SimulatorOptimisedGpu::create_draw_pipeline()
+    void SimulatorOptimisedGpu::create_draw_pipeline()
     {
         GraphicsPipelineConfig config;
 
@@ -234,14 +240,16 @@ namespace vhs
         config.vertex_binding_descriptions.push_back(Vertex::vertex_binding_description());
         config.vertex_attribute_descriptions = Vertex::vertex_attribute_descriptions();
 
-        return { "DrawPipeline", *context_, render_pass_, config };
+        draw_pipeline_ = { "DrawPipeline", *context_, render_pass_, config };
     }
 
-    Buffer SimulatorOptimisedGpu::create_vertex_buffer()
+
+    // Buffer management.
+    void SimulatorOptimisedGpu::create_vertex_buffer()
     {
         const auto particles = grow_hairs();
 
-        return context_->create_vertex_buffer("Particles", particles.data(), particles.size());
+        vbo_ = context_->create_vertex_buffer("Particles", particles.data(), particles.size());
     }
 
 

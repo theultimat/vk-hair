@@ -15,7 +15,7 @@ namespace vhs
     class Fence
     {
     public:
-        Fence() = delete;
+        Fence() = default;
         Fence(const Fence&) = delete;
 
         Fence(std::string_view name, GraphicsContext& context, VkFenceCreateFlags flags = 0);

@@ -24,7 +24,7 @@ namespace vhs
     class Image
     {
     public:
-        Image() = delete;
+        Image() = default;
         Image(const Image&) = delete;
 
         Image(std::string_view name, GraphicsContext& context, const ImageConfig& config);

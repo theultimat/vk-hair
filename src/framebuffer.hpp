@@ -24,7 +24,7 @@ namespace vhs
     class Framebuffer
     {
     public:
-        Framebuffer() = delete;
+        Framebuffer() = default;
         Framebuffer(const Framebuffer&) = delete;
 
         Framebuffer(std::string_view name, GraphicsContext& context, RenderPass& pass, const FramebufferConfig& config);

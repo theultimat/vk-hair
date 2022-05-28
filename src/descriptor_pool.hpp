@@ -39,7 +39,7 @@ namespace vhs
     class DescriptorPool
     {
     public:
-        DescriptorPool() = delete;
+        DescriptorPool() = default;
         DescriptorPool(const DescriptorPool&) = delete;
 
         DescriptorPool(std::string_view view, GraphicsContext& context, const DescriptorPoolConfig& config);

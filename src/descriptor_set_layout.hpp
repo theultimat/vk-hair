@@ -28,7 +28,7 @@ namespace vhs
     class DescriptorSetLayout
     {
     public:
-        DescriptorSetLayout() = delete;
+        DescriptorSetLayout() = default;
         DescriptorSetLayout(const DescriptorSetLayout&) = delete;
 
         DescriptorSetLayout(std::string_view name, GraphicsContext& context, const DescriptorSetLayoutConfig& config);

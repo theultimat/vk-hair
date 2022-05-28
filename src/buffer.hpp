@@ -24,7 +24,7 @@ namespace vhs
     class Buffer
     {
     public:
-        Buffer() = delete;
+        Buffer() = default;
         Buffer(const Buffer&) = delete;
 
         Buffer(std::string_view name, GraphicsContext& context, const BufferConfig& config);

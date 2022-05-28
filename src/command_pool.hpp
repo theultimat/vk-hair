@@ -16,7 +16,7 @@ namespace vhs
     class CommandPool
     {
     public:
-        CommandPool() = delete;
+        CommandPool() = default;
         CommandPool(const CommandPool&) = delete;
 
         CommandPool(std::string_view name, GraphicsContext& context, uint32_t queue_family_index);

@@ -83,7 +83,7 @@ namespace vhs
     class RenderPass
     {
     public:
-        RenderPass() = delete;
+        RenderPass() = default;
         RenderPass(const RenderPass&) = delete;
 
         RenderPass(std::string_view name, GraphicsContext& context, const RenderPassConfig& config);

@@ -14,7 +14,7 @@ namespace vhs
     class ShaderModule
     {
     public:
-        ShaderModule() = delete;
+        ShaderModule() = default;
         ShaderModule(const ShaderModule&) = delete;
 
         ShaderModule(std::string_view name, GraphicsContext& context, const std::byte* code, uint32_t code_size, VkShaderStageFlags stage);

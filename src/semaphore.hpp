@@ -15,7 +15,7 @@ namespace vhs
     class Semaphore
     {
     public:
-        Semaphore() = delete;
+        Semaphore() = default;
         Semaphore(const Semaphore&) = delete;
 
         Semaphore(std::string_view name, GraphicsContext& context);

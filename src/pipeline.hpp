@@ -49,7 +49,7 @@ namespace vhs
     class Pipeline
     {
     public:
-        Pipeline() = delete;
+        Pipeline() = default;
         Pipeline(const Pipeline&) = delete;
 
         Pipeline(std::string_view name, GraphicsContext& context, RenderPass& pass, const GraphicsPipelineConfig& config);

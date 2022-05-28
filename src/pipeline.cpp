@@ -59,6 +59,7 @@ namespace vhs
 
         input_assembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
         input_assembly.topology = config.primitive_topology;
+        input_assembly.primitiveRestartEnable = config.primitive_restart;
 
         VkPipelineRasterizationStateCreateInfo rasterisation { };
 

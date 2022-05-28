@@ -34,6 +34,7 @@ namespace vhs
         VkCullModeFlags cull_mode = VK_CULL_MODE_BACK_BIT;
         VkBool32 depth_test = VK_TRUE;
         VkBool32 depth_write = VK_TRUE;
+        VkBool32 primitive_restart = VK_FALSE;
         VkCompareOp depth_compare_op = VK_COMPARE_OP_LESS_OR_EQUAL;
         VkRect2D viewport;
     };

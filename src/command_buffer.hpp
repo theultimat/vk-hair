@@ -63,9 +63,11 @@ namespace vhs
 
         void bind_pipeline(const Pipeline& pipeline);
         void bind_vertex_buffer(const Buffer& buffer);
+        void bind_index_buffer(const Buffer& buffer, VkIndexType type = VK_INDEX_TYPE_UINT32);
         void bind_descriptor_sets(const Pipeline& pipeline, const VkDescriptorSet* sets, uint32_t num_sets);
 
         void draw(uint32_t num_vertices, uint32_t num_instances = 1);
+        void draw_indexed(uint32_t num_indices, uint32_t num_instances = 1);
         void dispatch(uint32_t num_groups_x, uint32_t num_groups_y = 1, uint32_t num_groups_z = 1);
 
         void push_constants(const Pipeline& pipeline, VkShaderStageFlags stage_flags, const void* data, uint32_t size, uint32_t offset = 0);

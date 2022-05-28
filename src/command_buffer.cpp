@@ -62,6 +62,11 @@ namespace vhs
         vkCmdBindVertexBuffers(buffer_, 0, 1, &handle, &offset);
     }
 
+    void CommandBuffer::bind_index_buffer(const Buffer& buffer, VkIndexType type)
+    {
+        vkCmdBindIndexBuffer(buffer_, buffer.vk_buffer(), 0, type);
+    }
+
     void CommandBuffer::bind_descriptor_sets(const Pipeline& pipeline, const VkDescriptorSet* sets, uint32_t num_sets)
     {
         vkCmdBindDescriptorSets(buffer_, pipeline.bind_point(), pipeline.vk_pipeline_layout(), 0, num_sets, sets, 0, nullptr);
@@ -78,6 +83,11 @@ namespace vhs
     void CommandBuffer::draw(uint32_t num_vertices, uint32_t num_instances)
     {
         vkCmdDraw(buffer_, num_vertices, num_instances, 0, 0);
+    }
+
+    void CommandBuffer::draw_indexed(uint32_t num_indices, uint32_t num_instances)
+    {
+        vkCmdDrawIndexed(buffer_, num_indices, num_instances, 0, 0, 0);
     }
 
     void CommandBuffer::dispatch(uint32_t num_groups_x, uint32_t num_groups_y, uint32_t num_groups_z)

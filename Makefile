@@ -1,3 +1,4 @@
+include Defines.mk
 include Traces.mk
 
 SOURCE_ROOT := src
@@ -30,7 +31,7 @@ SUBMODULE_INCLUDES := -Isubmodules -Isubmodules/VulkanMemoryAllocator/include -I
 
 CXX := clang++
 CXXFLAGS := -Wall -Werror -Wextra -std=c++17 -MD -MP -g -O3  $(shell pkg-config --cflags $(PACKAGES)) $(SUBMODULE_INCLUDES)
-CXXDEFS := -DGLM_FORCE_RADIANS -DGLM_FORCE_DEPTH_ZERO_TO_ONE -DFMT_ENFORCE_COMPILE_STRING -DGLFW_INCLUDE_VULKAN
+CXXDEFS := -DGLM_FORCE_RADIANS -DGLM_FORCE_DEPTH_ZERO_TO_ONE -DFMT_ENFORCE_COMPILE_STRING -DGLFW_INCLUDE_VULKAN $(HAIR_DEFINES)
 LDFLAGS := $(shell pkg-config --libs $(PACKAGES))
 
 # Required for VMA, unfortunately can't disable this using a pragma for a single file.
@@ -58,7 +59,7 @@ $(filter %/fs.spv,$(SHADER_OBJECTS)): SHADER_STAGE := frag
 
 $(BUILD_ROOT)/bin/data/%.spv: $(DATA_ROOT)/%.glsl
 	@mkdir -p $(@D)
-	glslc -fshader-stage=$(SHADER_STAGE) -o $@ $<
+	glslc -fshader-stage=$(SHADER_STAGE) $(HAIR_DEFINES) -o $@ $<
 
 $(BUILD_ROOT)/bin/data/%.obj: $(DATA_ROOT)/%.obj
 	@mkdir -p $(@D)

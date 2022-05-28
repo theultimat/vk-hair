@@ -52,6 +52,8 @@ namespace vhs
         config.sizes[VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC] = 1000;
         config.sizes[VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT] = 1000;
 
+        config.max_sets = 1000;
+
         imgui_desc_pool_ = { "ImguiDescPool", *context_, config };
     }
 

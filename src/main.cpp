@@ -52,6 +52,7 @@ static vhs::DescriptorPool create_descriptor_pool(vhs::GraphicsContext& context)
     vhs::DescriptorPoolConfig config;
 
     config.sizes[VK_DESCRIPTOR_TYPE_STORAGE_BUFFER] = 1;
+    config.max_sets = 1;
 
     return { "DescPool", context, config };
 }

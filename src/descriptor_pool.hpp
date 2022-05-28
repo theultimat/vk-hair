@@ -15,6 +15,7 @@ namespace vhs
     struct DescriptorPoolConfig
     {
         std::unordered_map<VkDescriptorType, uint32_t> sizes;
+        uint32_t max_sets;
     };
 
     // Configuration for allocating a buffer within a set.

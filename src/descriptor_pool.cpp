@@ -19,20 +19,15 @@ namespace vhs
         std::vector<VkDescriptorPoolSize> sizes;
         sizes.reserve(config.sizes.size());
 
-        uint32_t max_sets = 0;
-
         for (auto [type, size] : config.sizes)
-        {
             sizes.emplace_back(VkDescriptorPoolSize { type, size });
-            max_sets += size;
-        }
 
         VkDescriptorPoolCreateInfo create_info { };
 
         create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
         create_info.pPoolSizes = sizes.data();
         create_info.poolSizeCount = sizes.size();
-        create_info.maxSets = max_sets;
+        create_info.maxSets = config.max_sets;
 
         VHS_CHECK_VK(vkCreateDescriptorPool(context.vk_device(), &create_info, nullptr, &pool_));
     }

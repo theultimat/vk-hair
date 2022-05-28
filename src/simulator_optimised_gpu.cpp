@@ -55,14 +55,19 @@ namespace vhs
         initialise_properties();
         initialise_particles();
 
+        create_vertex_buffer();
+        create_index_buffer();
+        create_particle_buffer();
+
+        create_desc_pool();
+        create_desc_layout();
+        create_desc_set();
+
         create_depth_buffer();
         create_render_pass();
         create_draw_pipeline();
 
         framebuffers_ = context.create_swapchain_framebuffers(render_pass_, &depth_image_view_);
-
-        create_vertex_buffer();
-        create_index_buffer();
 
         initialise_imgui(render_pass_);
     }
@@ -298,8 +303,8 @@ namespace vhs
             }
         }
 
-
-        vbo_ = context_->create_vertex_buffer("Vertices", vertices.data(), vertices.size());
+        vbo_ = context_->create_device_local_buffer("Vertices", VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            vertices.data(), vertices.size());
     }
 
     void SimulatorOptimisedGpu::create_index_buffer()
@@ -324,6 +329,11 @@ namespace vhs
         }
 
         ebo_ = context_->create_index_buffer("Indices", hair_indices_.data(), hair_indices_.size());
+    }
+
+    void SimulatorOptimisedGpu::create_particle_buffer()
+    {
+        ssbo_particles_ = context_->create_device_local_buffer("Particles", VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, ssbo_hair_data_.data(), ssbo_hair_data_.size());
     }
 
 
@@ -363,6 +373,68 @@ namespace vhs
             }
         }
     }
+
+
+    // Descriptor management.
+    void SimulatorOptimisedGpu::create_desc_pool()
+    {
+        DescriptorPoolConfig config;
+
+        // A single descriptor set is needed as this will be shared between all shaders.
+        config.max_sets = 1;
+
+        // We need to bind the vertex buffer and particle state buffer at the same time which both count as SSBOs.
+        config.sizes[VK_DESCRIPTOR_TYPE_STORAGE_BUFFER] = 2;
+
+        desc_pool_ = { "DescPool", *context_, config };
+    }
+
+    void SimulatorOptimisedGpu::create_desc_layout()
+    {
+        DescriptorSetLayoutBindingConfig bind_ssbo_hair_data;
+
+        bind_ssbo_hair_data.binding = VHS_PARTICLE_BUFFER_BINDING;
+        bind_ssbo_hair_data.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        bind_ssbo_hair_data.stage_flags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+        DescriptorSetLayoutBindingConfig bind_vbo;
+
+        bind_vbo.binding = VHS_VERTEX_BUFFER_BINDING;
+        bind_vbo.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        bind_vbo.stage_flags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+        DescriptorSetLayoutConfig config;
+
+        config.bindings.push_back(bind_ssbo_hair_data);
+        config.bindings.push_back(bind_vbo);
+
+        desc_layout_ = { "DescLayout", *context_, config };
+    }
+
+    void SimulatorOptimisedGpu::create_desc_set()
+    {
+        DescriptorSetBufferConfig ssbo_particles_config;
+
+        ssbo_particles_config.binding = VHS_PARTICLE_BUFFER_BINDING;
+        ssbo_particles_config.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        ssbo_particles_config.buffer = ssbo_particles_.vk_buffer();
+        ssbo_particles_config.size = ssbo_particles_.size();
+
+        DescriptorSetBufferConfig vbo_config;
+
+        vbo_config.binding = VHS_VERTEX_BUFFER_BINDING;
+        vbo_config.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        vbo_config.buffer = vbo_.vk_buffer();
+        vbo_config.size = vbo_.size();
+
+        DescriptorSetConfig config;
+
+        config.buffers.push_back(ssbo_particles_config);
+        config.buffers.push_back(vbo_config);
+
+        desc_set_ = desc_pool_.allocate(desc_layout_, config);
+    }
+
 
     // ImGui.
     void SimulatorOptimisedGpu::draw_imgui()

@@ -3,6 +3,8 @@
 
 #include <vector>
 
+#include "descriptor_pool.hpp"
+#include "descriptor_set_layout.hpp"
 #include "framebuffer.hpp"
 #include "image.hpp"
 #include "image_view.hpp"
@@ -40,6 +42,11 @@ namespace vhs
         // Depth buffer management.
         void create_depth_buffer();
 
+        // Descriptor management.
+        void create_desc_pool();
+        void create_desc_layout();
+        void create_desc_set();
+
         // Render pass and draw pipeline.
         void create_render_pass();
         void create_draw_pipeline();
@@ -47,6 +54,7 @@ namespace vhs
         // Buffers.
         void create_vertex_buffer();
         void create_index_buffer();
+        void create_particle_buffer();
 
         // Hair management.
         void initialise_properties();
@@ -59,6 +67,11 @@ namespace vhs
         Image depth_image_;
         ImageView depth_image_view_;
 
+        // Descriptor pool and sets.
+        DescriptorPool desc_pool_;
+        DescriptorSetLayout desc_layout_;
+        VkDescriptorSet desc_set_ = VK_NULL_HANDLE;
+
         // Main rendering pass and associated pipeline.
         RenderPass render_pass_;
         Pipeline draw_pipeline_;
@@ -66,9 +79,10 @@ namespace vhs
         // Framebuffers created by the context.
         std::vector<Framebuffer> framebuffers_;
 
-        // Vertex buffer for testing.
+        // Various buffers.
         Buffer vbo_;
         Buffer ebo_;
+        Buffer ssbo_particles_;
 
         // Hair properties.
         std::vector<RootVertex> hair_root_vertices_;

@@ -40,6 +40,8 @@ namespace vhs
         std::unique_ptr<Fence> render_fence;
         std::unique_ptr<Semaphore> image_available_semaphore;
         std::unique_ptr<Semaphore> render_finished_semaphore;
+
+        std::vector<VkSemaphore> submit_wait_semaphores;
     };
 
     // Structures for queue submission and presentation.

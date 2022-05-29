@@ -13,13 +13,14 @@
 #include "io.hpp"
 #include "pipeline.hpp"
 #include "render_pass.hpp"
-#include "semaphore.hpp"
 #include "shader_module.hpp"
 #include "simulator.hpp"
 
 
 namespace vhs
 {
+    class CommandBuffer;
+
     // Standard optimised simulator implementation.
     class SimulatorOptimisedGpu final : public Simulator
     {
@@ -63,12 +64,12 @@ namespace vhs
         void initialise_properties();
         void initialise_particles();
 
-        // Compute pipelines and semaphore.
+        // Compute pipelines.
         void create_create_vertices_pipeline();
-        void create_update_complete_semaphore();
 
-        // Command management.
+        // Command management and recording.
         void create_update_command_pool();
+        void record_create_vertices_commands(CommandBuffer& cmd);
 
         // Draw the ImGui components.
         void draw_imgui();
@@ -89,7 +90,6 @@ namespace vhs
 
         // Compute pipelines.
         Pipeline create_vertices_pipeline_;
-        Semaphore update_complete_semaphore_;
 
         // Main rendering pass and associated pipeline.
         RenderPass render_pass_;

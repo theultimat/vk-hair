@@ -76,7 +76,6 @@ namespace vhs
         create_update_command_pool();
 
         create_create_vertices_pipeline();
-        create_update_complete_semaphore();
 
         create_depth_buffer();
         create_render_pass();
@@ -104,6 +103,27 @@ namespace vhs
     void SimulatorOptimisedGpu::update(float dt)
     {
         (void)dt;
+
+        // Wait for the update fence - this will be signalled once the previous update is complete.
+        update_command_fence_.wait();
+        update_command_fence_.reset();
+
+        // Reset buffer and start command recording.
+        update_command_pool_.reset();
+
+        CommandBuffer cmd { update_command_buffer_ };
+
+        record_create_vertices_commands(cmd);
+
+        cmd.end();
+
+        // Commands are now complete so submit to the queue.
+        QueueSubmitConfig submit;
+
+        submit.command_buffers.push_back(update_command_buffer_);
+        submit.signal_fence = update_command_fence_.vk_fence();
+
+        context_->queue_submit(context_->graphics_queue(), submit);
     }
 
     void SimulatorOptimisedGpu::draw(FrameData& frame, float interp)
@@ -272,10 +292,9 @@ namespace vhs
     // Buffer management.
     void SimulatorOptimisedGpu::create_vertex_buffer()
     {
-        // Simulate what will be done in the vertex creation compute shader so we can confirm it works before switching to
-        // implementing it in GLSL.
         std::vector<glm::vec3> vertices(2 * hair_total_particles_);
 
+        // Write the initial vertices to the buffer. This matches what happens in the create vertices compute shader.
         for (uint32_t i = 0; i < hair_number_of_strands_; ++i)
         {
             for (uint32_t j = 0; j < hair_particles_per_strand_; ++j)
@@ -486,14 +505,8 @@ namespace vhs
         create_vertices_pipeline_ = { "CreateVertices", *context_, config };
     }
 
-    void SimulatorOptimisedGpu::create_update_complete_semaphore()
-    {
-        // We use the semaphore to signal the update is complete for sync with the draw commands.
-        update_complete_semaphore_ = { "UpdateComplete", *context_ };
-    }
 
-
-    // Update command management.
+    // Update command management and recording.
     void SimulatorOptimisedGpu::create_update_command_pool()
     {
         // Create the pool and allocate the buffer.
@@ -502,5 +515,40 @@ namespace vhs
 
         // Create the fence for waiting.
         update_command_fence_ = { "UpdateComplete", *context_, VK_FENCE_CREATE_SIGNALED_BIT };
+    }
+
+    void SimulatorOptimisedGpu::record_create_vertices_commands(CommandBuffer& cmd)
+    {
+        // Wait for the last draw command to finish with the vertex buffer so we can update it.
+        PipelineBarrier draw_to_create { VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT };
+        draw_to_create.add_buffer(VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT, vbo_);
+
+        cmd.barrier(draw_to_create);
+
+        // Bind the vertex creation pipeline and the descriptor set.
+        cmd.bind_pipeline(create_vertices_pipeline_);
+        cmd.bind_descriptor_sets(create_vertices_pipeline_, &desc_set_, 1);
+
+        // Fill the push constants for vertex creation.
+        CreateVerticesPushConstants create_vertices_consts;
+
+        create_vertices_consts.camera_front = camera_->front();
+        create_vertices_consts.hair_draw_radius = hair_draw_radius_;
+        create_vertices_consts.hair_total_particles = hair_total_particles_;
+        create_vertices_consts.hair_particles_per_strand = hair_particles_per_strand_;
+
+        cmd.push_constants(create_vertices_pipeline_, VK_SHADER_STAGE_COMPUTE_BIT, &create_vertices_consts, sizeof create_vertices_consts);
+
+        // Submit the kernel with the appropriate number of groups.
+        uint32_t create_vertices_groups = hair_total_particles_ / VHS_COMPUTE_LOCAL_SIZE;
+
+        if (hair_total_particles_ % VHS_COMPUTE_LOCAL_SIZE)
+            create_vertices_groups++;
+
+        cmd.dispatch(create_vertices_groups);
+
+        // Add another barrier for the next draw after we've written the vertex buffer.
+        PipelineBarrier create_to_draw { VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT };
+        create_to_draw.add_buffer(VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT, vbo_);
     }
 }

@@ -24,7 +24,7 @@ namespace vhs
         VHS_CHECK_VK(vkCreateCommandPool(context.vk_device(), &create_info, nullptr, &pool_));
     }
 
-    CommandPool::CommandPool(CommandPool& other) :
+    CommandPool::CommandPool(CommandPool&& other) :
         name_ { std::move(other.name_) },
         pool_ { std::move(other.pool_) },
         context_ { std::move(other.context_) }

@@ -20,7 +20,7 @@ namespace vhs
         CommandPool(const CommandPool&) = delete;
 
         CommandPool(std::string_view name, GraphicsContext& context, uint32_t queue_family_index);
-        CommandPool(CommandPool& other);
+        CommandPool(CommandPool&& other);
         ~CommandPool();
 
 

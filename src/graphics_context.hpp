@@ -42,6 +42,7 @@ namespace vhs
         std::unique_ptr<Semaphore> render_finished_semaphore;
 
         std::vector<VkSemaphore> submit_wait_semaphores;
+        std::vector<VkPipelineStageFlags> submit_wait_stages;
     };
 
     // Structures for queue submission and presentation.

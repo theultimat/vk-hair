@@ -668,6 +668,7 @@ namespace vhs
 
         // Clear the extra wait semaphores for the new frame.
         data.submit_wait_semaphores.clear();
+        data.submit_wait_stages.clear();
 
         return data;
     }
@@ -680,6 +681,8 @@ namespace vhs
         QueueSubmitConfig submit;
 
         submit.wait_semaphores = data.submit_wait_semaphores;
+        submit.wait_stages = data.submit_wait_stages;
+
         submit.wait_semaphores.push_back(data.image_available_semaphore->vk_semaphore());
         submit.wait_stages.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
         submit.signal_semaphores.push_back(data.render_finished_semaphore->vk_semaphore());

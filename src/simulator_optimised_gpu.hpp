@@ -11,6 +11,7 @@
 #include "io.hpp"
 #include "pipeline.hpp"
 #include "render_pass.hpp"
+#include "semaphore.hpp"
 #include "shader_module.hpp"
 #include "simulator.hpp"
 
@@ -60,6 +61,10 @@ namespace vhs
         void initialise_properties();
         void initialise_particles();
 
+        // Compute pipelines and semaphore.
+        void create_create_vertices_pipeline();
+        void create_update_complete_semaphore();
+
         // Draw the ImGui components.
         void draw_imgui();
 
@@ -71,6 +76,10 @@ namespace vhs
         DescriptorPool desc_pool_;
         DescriptorSetLayout desc_layout_;
         VkDescriptorSet desc_set_ = VK_NULL_HANDLE;
+
+        // Compute pipelines.
+        Pipeline create_vertices_pipeline_;
+        Semaphore update_complete_semaphore_;
 
         // Main rendering pass and associated pipeline.
         RenderPass render_pass_;

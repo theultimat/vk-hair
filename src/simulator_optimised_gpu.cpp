@@ -46,6 +46,16 @@ namespace vhs
     };
 
 
+    // Push constants for various pipelines.
+    struct CreateVerticesPushConstants
+    {
+        glm::vec3 camera_front;
+        float hair_draw_radius;
+        uint32_t hair_total_particles;
+        uint32_t hair_particles_per_strand;
+    };
+
+
     // Constructor.
     SimulatorOptimisedGpu::SimulatorOptimisedGpu(GraphicsContext& context, Camera& camera) :
         Simulator { context, camera }
@@ -62,6 +72,9 @@ namespace vhs
         create_desc_pool();
         create_desc_layout();
         create_desc_set();
+
+        create_create_vertices_pipeline();
+        create_update_complete_semaphore();
 
         create_depth_buffer();
         create_render_pass();
@@ -445,5 +458,35 @@ namespace vhs
         ImGui::NewFrame();
         // ImGui::ShowDemoWindow();
         ImGui::Render();
+    }
+
+
+    // Compute pipelines.
+    void SimulatorOptimisedGpu::create_create_vertices_pipeline()
+    {
+        ComputePipelineConfig config;
+
+        // Load the kernel from the disk.
+        auto kernel = context_->create_shader_module("CreateVertices", VK_SHADER_STAGE_COMPUTE_BIT, "data/shaders/optimised_gpu/create_vertices.spv");
+        config.shader_module = &kernel;
+
+        // Add our descriptor set layout.
+        config.descriptor_set_layouts.push_back(desc_layout_.vk_descriptor_set_layout());
+
+        // Configure the push constants.
+        VkPushConstantRange push_constants { };
+
+        push_constants.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+        push_constants.size = sizeof(CreateVerticesPushConstants);
+
+        config.push_constants.push_back(push_constants);
+
+        create_vertices_pipeline_ = { "CreateVertices", *context_, config };
+    }
+
+    void SimulatorOptimisedGpu::create_update_complete_semaphore()
+    {
+        // We use the semaphore to signal the update is complete for sync with the draw commands.
+        update_complete_semaphore_ = { "UpdateComplete", *context_ };
     }
 }

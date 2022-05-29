@@ -73,6 +73,8 @@ namespace vhs
         create_desc_layout();
         create_desc_set();
 
+        create_update_command_pool();
+
         create_create_vertices_pipeline();
         create_update_complete_semaphore();
 
@@ -488,5 +490,17 @@ namespace vhs
     {
         // We use the semaphore to signal the update is complete for sync with the draw commands.
         update_complete_semaphore_ = { "UpdateComplete", *context_ };
+    }
+
+
+    // Update command management.
+    void SimulatorOptimisedGpu::create_update_command_pool()
+    {
+        // Create the pool and allocate the buffer.
+        update_command_pool_ = { "Update", *context_, context_->graphics_queue_family() };
+        update_command_pool_.allocate(&update_command_buffer_, 1);
+
+        // Create the fence for waiting.
+        update_command_fence_ = { "UpdateComplete", *context_, VK_FENCE_CREATE_SIGNALED_BIT };
     }
 }

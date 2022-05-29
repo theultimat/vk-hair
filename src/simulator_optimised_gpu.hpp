@@ -3,8 +3,10 @@
 
 #include <vector>
 
+#include "command_pool.hpp"
 #include "descriptor_pool.hpp"
 #include "descriptor_set_layout.hpp"
+#include "fence.hpp"
 #include "framebuffer.hpp"
 #include "image.hpp"
 #include "image_view.hpp"
@@ -65,6 +67,9 @@ namespace vhs
         void create_create_vertices_pipeline();
         void create_update_complete_semaphore();
 
+        // Command management.
+        void create_update_command_pool();
+
         // Draw the ImGui components.
         void draw_imgui();
 
@@ -76,6 +81,11 @@ namespace vhs
         DescriptorPool desc_pool_;
         DescriptorSetLayout desc_layout_;
         VkDescriptorSet desc_set_ = VK_NULL_HANDLE;
+
+        // Command pool and buffer for updates.
+        CommandPool update_command_pool_;
+        Fence update_command_fence_;
+        VkCommandBuffer update_command_buffer_ = VK_NULL_HANDLE;
 
         // Compute pipelines.
         Pipeline create_vertices_pipeline_;

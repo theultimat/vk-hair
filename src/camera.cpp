@@ -12,7 +12,7 @@ namespace vhs
         position_ { position }
     {
         auto aspect_ratio = (float)window_width / window_height;
-        project(glm::radians(90.0f), aspect_ratio, 0.1f, 100.0f);
+        project(glm::radians(90.0f), aspect_ratio, 0.001f, 10.0f);
         update(0);
     }
 

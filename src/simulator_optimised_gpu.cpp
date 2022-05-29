@@ -550,5 +550,7 @@ namespace vhs
         // Add another barrier for the next draw after we've written the vertex buffer.
         PipelineBarrier create_to_draw { VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT };
         create_to_draw.add_buffer(VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT, vbo_);
+
+        cmd.barrier(create_to_draw);
     }
 }

@@ -483,7 +483,8 @@ namespace vhs
 
         if (draw_ui_)
         {
-            ImGui::ShowDemoWindow();
+            ImGui::SliderFloat("Hair Particle Separation", &hair_particle_separation_, 0.0f, 1.0f);
+            ImGui::SliderFloat("Hair Draw Radius", &hair_draw_radius_, 1e-4f, 1e-2f, "%.6f");
         }
 
         ImGui::Render();

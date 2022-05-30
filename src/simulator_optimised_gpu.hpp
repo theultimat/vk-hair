@@ -41,6 +41,7 @@ namespace vhs
         void process_input(const KeyboardState& ks) final;
         void update(float dt) final;
         void draw(FrameData& frame, float interp) final;
+        bool ui_active() const final { return draw_ui_; }
 
     private:
         // Depth buffer management.

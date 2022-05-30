@@ -127,6 +127,8 @@ int main()
     double previous_time = glfwGetTime();
     double latency_time = 0;
 
+    bool prev_ui_active = sim.ui_active();
+
     while (context.is_window_open())
     {
         // Calculate time since last iteration and add to latency accumulator.
@@ -143,13 +145,24 @@ int main()
         const auto& mouse = context.mouse_state();
         const auto& keyboard = context.keyboard_state();
 
-        const auto dx = mouse.x() - prev_mouse.x();
-        const auto dy = mouse.y() - prev_mouse.y();
+        const auto ui_active = sim.ui_active();
+
+        // Only update the camera if the user interface is not currently active.
+        if (!ui_active)
+        {
+            const auto dx = mouse.x() - prev_mouse.x();
+            const auto dy = mouse.y() - prev_mouse.y();
+
+            camera.process_input(keyboard, dx, dy);
+            camera.update(elapsed_time);
+        }
+
+        // Toggle cursor visibility when the UI is visible.
+        if (ui_active != prev_ui_active)
+            context.set_cursor_mode(ui_active ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED);
 
         prev_mouse = mouse;
-
-        camera.process_input(keyboard, dx, dy);
-        camera.update(elapsed_time);
+        prev_ui_active = ui_active;
 
         sim.process_input(keyboard);
 

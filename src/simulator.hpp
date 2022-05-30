@@ -42,6 +42,9 @@ namespace vhs
         // to call begin/end.
         virtual void draw(FrameData& frame, float interp) = 0;
 
+        // Whether the camera should be updated by the main loop.
+        virtual bool ui_active() const { return false; }
+
     protected:
         // ImGui management.
         void initialise_imgui(RenderPass& pass);

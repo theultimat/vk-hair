@@ -97,7 +97,10 @@ namespace vhs
     // Simulator interface functions.
     void SimulatorOptimisedGpu::process_input(const KeyboardState& ks)
     {
-        (void)ks;
+        if (ks.down(GLFW_KEY_SPACE) && prev_key_state_.up(GLFW_KEY_SPACE))
+            draw_ui_ = !draw_ui_;
+
+        prev_key_state_ = ks;
     }
 
     void SimulatorOptimisedGpu::update(float dt)
@@ -477,7 +480,12 @@ namespace vhs
         ImGui_ImplGlfw_NewFrame();
 
         ImGui::NewFrame();
-        // ImGui::ShowDemoWindow();
+
+        if (draw_ui_)
+        {
+            ImGui::ShowDemoWindow();
+        }
+
         ImGui::Render();
     }
 

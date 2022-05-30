@@ -117,6 +117,12 @@ namespace vhs
         std::vector<uint32_t> hair_indices_;
 
         uint32_t buf_total_size_;
+
+        // Previous keyboard state.
+        KeyboardState prev_key_state_;
+
+        // Whether to draw the user interface.
+        bool draw_ui_ = false;
     };
 }
 

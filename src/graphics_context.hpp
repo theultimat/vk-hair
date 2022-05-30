@@ -151,6 +151,9 @@ namespace vhs
         // Load shader module from file.
         ShaderModule create_shader_module(std::string_view name, VkShaderStageFlags stage, const char* path);
 
+        // Change the cursor mode.
+        void set_cursor_mode(int mode) { glfwSetInputMode(window_, GLFW_CURSOR, mode); }
+
 
         // Access Vulkan handles.
         VkInstance vk_instance() const { return instance_; }

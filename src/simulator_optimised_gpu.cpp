@@ -94,6 +94,7 @@ namespace vhs
         create_update_command_pool();
 
         create_create_vertices_pipeline();
+        create_update_pipeline();
 
         create_depth_buffer();
         create_render_pass();
@@ -531,6 +532,25 @@ namespace vhs
         config.push_constants.push_back(push_constants);
 
         create_vertices_pipeline_ = { "CreateVertices", *context_, config };
+    }
+
+    void SimulatorOptimisedGpu::create_update_pipeline()
+    {
+        ComputePipelineConfig config;
+
+        auto kernel = context_->create_shader_module("Update", VK_SHADER_STAGE_COMPUTE_BIT, "data/shaders/optimised_gpu/update.spv");
+        config.shader_module = &kernel;
+
+        config.descriptor_set_layouts.push_back(desc_layout_.vk_descriptor_set_layout());
+
+        VkPushConstantRange push_constants { };
+
+        push_constants.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+        push_constants.size = sizeof(UpdatePushConstants);
+
+        config.push_constants.push_back(push_constants);
+
+        update_pipeline_ = { "Update", *context_, config };
     }
 
 

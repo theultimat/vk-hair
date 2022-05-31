@@ -67,6 +67,7 @@ namespace vhs
 
         // Compute pipelines.
         void create_create_vertices_pipeline();
+        void create_update_pipeline();
 
         // Command management and recording.
         void create_update_command_pool();
@@ -91,6 +92,7 @@ namespace vhs
 
         // Compute pipelines.
         Pipeline create_vertices_pipeline_;
+        Pipeline update_pipeline_;
 
         // Main rendering pass and associated pipeline.
         RenderPass render_pass_;

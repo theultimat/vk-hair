@@ -49,11 +49,29 @@ namespace vhs
     // Push constants for various pipelines.
     struct CreateVerticesPushConstants
     {
-        glm::vec3 camera_front;
+        alignas(16) glm::vec3 camera_front;
         float hair_draw_radius;
         uint32_t hair_total_particles;
         uint32_t hair_particles_per_strand;
+        uint32_t padding[6];
     };
+
+    struct UpdatePushConstants
+    {
+        alignas(16) glm::vec3 external_forces;
+        float hair_particle_separation;
+        float delta_time;
+        float delta_time_sq;
+        float delta_time_inv;
+        float damping_factor;
+        uint32_t hair_total_particles;
+        uint32_t hair_particles_per_strand;
+        uint32_t ftl_iterations;
+    };
+
+    // In order to have compatible pipeline layouts push constant ranges need to be the same.
+    static_assert(sizeof(CreateVerticesPushConstants) == sizeof(UpdatePushConstants));
+    static_assert(sizeof(UpdatePushConstants) <= 128);
 
 
     // Constructor.
@@ -387,7 +405,8 @@ namespace vhs
         hair_particle_separation_ = 0.08f;
         hair_draw_radius_ = 0.0005f;
 
-        buf_total_size_ = hair_total_particles_ * 3;
+        // For each particle we need to store 3d position and velocity. Positions are stored first.
+        buf_total_size_ = hair_total_particles_ * 3 * 2;
     }
 
     void SimulatorOptimisedGpu::initialise_particles()

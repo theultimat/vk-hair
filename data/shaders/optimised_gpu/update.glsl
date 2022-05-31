@@ -55,7 +55,7 @@ void main()
     PositionBuffer[lid] = root ? originalPosition : (originalPosition + VelocityBuffer[lid] * u_DeltaTime + u_ExternalForces * u_DeltaTimeSq);
 
     // Position before constraints of next particle.
-    vec3 preConstraintPosition = PositionBuffer[lid];
+    vec3 preConstraintPosition = PositionBuffer[nlid];
 
     // Apply FTL alternately on even and odd particles.
     for (uint i = 0; i < u_FtlIterations; ++i)
@@ -78,7 +78,7 @@ void main()
     }
 
     // Find correction vector.
-    vec3 correction = correct ? (PositionBuffer[lid] - preConstraintPosition) : vec3(0);
+    vec3 correction = correct ? (PositionBuffer[nlid] - preConstraintPosition) : vec3(0);
 
     // Calculate base velocity.
     VelocityBuffer[lid] = (PositionBuffer[lid] - originalPosition) * u_DeltaTimeInv;

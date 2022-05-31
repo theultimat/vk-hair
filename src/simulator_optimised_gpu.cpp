@@ -124,8 +124,6 @@ namespace vhs
 
     void SimulatorOptimisedGpu::update(float dt)
     {
-        (void)dt;
-
         // Wait for the update fence - this will be signalled once the previous update is complete.
         update_command_fence_.wait();
         update_command_fence_.reset();
@@ -135,7 +133,35 @@ namespace vhs
 
         CommandBuffer cmd { update_command_buffer_ };
 
+        // Bind the descriptor set once up front for all the compute shaders.
+        cmd.bind_descriptor_sets(create_vertices_pipeline_, &desc_set_, 1);
+
+        // Before starting the first update stage we need to wait for the previous update tick to have finished any reads
+        // from the particle buffer. The last reads are performed in the create vertices stage of the previous tick and
+        // now we're going to write to it in the next compute shader.
+        PipelineBarrier prev_to_cur { VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT };
+        prev_to_cur.add_buffer(VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT, ssbo_particles_);
+
+        cmd.barrier(prev_to_cur);
+
+        record_update_commands(cmd, dt);
+
+        // In order to start the vertex creation we need the previous update kernels to have finished AND for the previous
+        // draw call to have finished reading the vertices we're going to write.
+        PipelineBarrier before_create { VK_PIPELINE_STAGE_VERTEX_INPUT_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT };
+        before_create.add_buffer(VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, ssbo_particles_);
+        before_create.add_buffer(VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT, vbo_);
+
+        cmd.barrier(before_create);
+
         record_create_vertices_commands(cmd);
+
+        // Add another barrier for the next draw after we've written the vertex buffer.
+        PipelineBarrier create_to_draw { VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT };
+        create_to_draw.add_buffer(VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT, vbo_);
+
+        cmd.barrier(create_to_draw);
 
         cmd.end();
 
@@ -405,6 +431,7 @@ namespace vhs
         hair_total_particles_ = hair_number_of_strands_ * hair_particles_per_strand_;
         hair_particle_separation_ = 0.08f;
         hair_draw_radius_ = 0.0005f;
+        hair_particle_mass_ = 0.15f;
 
         // For each particle we need to store 3d position and velocity. Positions are stored first.
         buf_total_size_ = hair_total_particles_ * 3 * 2;
@@ -504,7 +531,11 @@ namespace vhs
         if (draw_ui_)
         {
             ImGui::SliderFloat("Hair Particle Separation", &hair_particle_separation_, 0.0f, 1.0f);
+            ImGui::SliderFloat("Hair Particle Mass", &hair_particle_mass_, 0.01f, 1.0f);
             ImGui::SliderFloat("Hair Draw Radius", &hair_draw_radius_, 1e-4f, 1e-2f, "%.6f");
+            ImGui::SliderFloat("Damping Factor", &damping_factor_, -1.0f, 0.0f);
+            ImGui::SliderFloat3("Gravity", reinterpret_cast<float*>(&gravity_), -15.0f, 15.0f, "%.2f");
+            ImGui::SliderInt("FTL Iterations", reinterpret_cast<int*>(&ftl_iterations_), 2, 8);
         }
 
         ImGui::Render();
@@ -567,15 +598,8 @@ namespace vhs
 
     void SimulatorOptimisedGpu::record_create_vertices_commands(CommandBuffer& cmd)
     {
-        // Wait for the last draw command to finish with the vertex buffer so we can update it.
-        PipelineBarrier draw_to_create { VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT };
-        draw_to_create.add_buffer(VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT, vbo_);
-
-        cmd.barrier(draw_to_create);
-
-        // Bind the vertex creation pipeline and the descriptor set.
+        // Bind the vertex creation pipeline.
         cmd.bind_pipeline(create_vertices_pipeline_);
-        cmd.bind_descriptor_sets(create_vertices_pipeline_, &desc_set_, 1);
 
         // Fill the push constants for vertex creation.
         CreateVerticesPushConstants create_vertices_consts;
@@ -594,11 +618,34 @@ namespace vhs
             create_vertices_groups++;
 
         cmd.dispatch(create_vertices_groups);
+    }
 
-        // Add another barrier for the next draw after we've written the vertex buffer.
-        PipelineBarrier create_to_draw { VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT };
-        create_to_draw.add_buffer(VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT, vbo_);
+    void SimulatorOptimisedGpu::record_update_commands(CommandBuffer& cmd, float dt)
+    {
+        // Bind the update pipeline.
+        cmd.bind_pipeline(update_pipeline_);
 
-        cmd.barrier(create_to_draw);
+        // Fill in the push constants.
+        UpdatePushConstants update_consts;
+
+        update_consts.external_forces = gravity_ * hair_particle_mass_;
+        update_consts.hair_particle_separation = hair_particle_separation_;
+        update_consts.delta_time = dt;
+        update_consts.delta_time_sq = dt * dt;
+        update_consts.delta_time_inv = 1.0f / dt;
+        update_consts.damping_factor = damping_factor_ / dt;
+        update_consts.hair_total_particles = hair_total_particles_;
+        update_consts.hair_particles_per_strand = hair_particles_per_strand_;
+        update_consts.ftl_iterations = ftl_iterations_;
+
+        cmd.push_constants(update_pipeline_, VK_SHADER_STAGE_COMPUTE_BIT, &update_consts, sizeof update_consts);
+
+        // Submit to queue.
+        uint32_t update_groups = hair_total_particles_ / VHS_COMPUTE_LOCAL_SIZE;
+
+        if (hair_total_particles_ % VHS_COMPUTE_LOCAL_SIZE)
+            update_groups++;
+
+        cmd.dispatch(update_groups);
     }
 }

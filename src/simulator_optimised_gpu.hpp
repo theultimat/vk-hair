@@ -71,6 +71,7 @@ namespace vhs
 
         // Command management and recording.
         void create_update_command_pool();
+        void record_update_commands(CommandBuffer& cmd, float dt);
         void record_create_vertices_commands(CommandBuffer& cmd);
 
         // Draw the ImGui components.
@@ -110,11 +111,17 @@ namespace vhs
         std::vector<RootVertex> hair_root_vertices_;
         std::vector<uint16_t> hair_root_indices_;
 
+        glm::vec3 gravity_ = { 0.0f, -9.81f, 0.0f };
+
         uint32_t hair_number_of_strands_;
         uint32_t hair_particles_per_strand_;
         uint32_t hair_total_particles_;
+        uint32_t ftl_iterations_ = 5;
+
         float hair_particle_separation_;
         float hair_draw_radius_;
+        float hair_particle_mass_;
+        float damping_factor_ = -0.9f;
 
         std::vector<float> ssbo_hair_data_;
         std::vector<uint32_t> hair_indices_;

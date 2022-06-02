@@ -37,7 +37,7 @@ void main()
 
     // Load particle position and velocity into shared memory.
     uint offsetPosition = gid;
-    uint offsetVelocity = gid + u_HairTotalParticles * u_HairParticlesPerStrand * 3;
+    uint offsetVelocity = gid + u_HairTotalParticles * 3;
 
     PositionBuffer[lid].x = valid ? ParticleStateBuffer[offsetPosition + u_HairTotalParticles * 0] : 0.0f;
     PositionBuffer[lid].y = valid ? ParticleStateBuffer[offsetPosition + u_HairTotalParticles * 1] : 0.0f;

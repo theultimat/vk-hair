@@ -133,6 +133,9 @@ namespace vhs
 
         // Whether to draw the user interface.
         bool draw_ui_ = false;
+
+        // Whether the simualtion is currently active or paused.
+        bool simulation_active_ = true;
     };
 }
 

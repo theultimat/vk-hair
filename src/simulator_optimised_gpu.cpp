@@ -136,22 +136,27 @@ namespace vhs
         // Bind the descriptor set once up front for all the compute shaders.
         cmd.bind_descriptor_sets(create_vertices_pipeline_, &desc_set_, 1);
 
-        // Before starting the first update stage we need to wait for the previous update tick to have finished any reads
-        // from the particle buffer. The last reads are performed in the create vertices stage of the previous tick and
-        // now we're going to write to it in the next compute shader.
-        PipelineBarrier prev_to_cur { VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT };
-        prev_to_cur.add_buffer(VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT, ssbo_particles_);
+        if (simulation_active_)
+        {
+            // Before starting the first update stage we need to wait for the previous update tick to have finished any reads
+            // from the particle buffer. The last reads are performed in the create vertices stage of the previous tick and
+            // now we're going to write to it in the next compute shader.
+            PipelineBarrier prev_to_cur { VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT };
+            prev_to_cur.add_buffer(VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT, ssbo_particles_);
 
-        cmd.barrier(prev_to_cur);
+            cmd.barrier(prev_to_cur);
 
-        record_update_commands(cmd, dt);
+            record_update_commands(cmd, dt);
+        }
 
         // In order to start the vertex creation we need the previous update kernels to have finished AND for the previous
         // draw call to have finished reading the vertices we're going to write.
         PipelineBarrier before_create { VK_PIPELINE_STAGE_VERTEX_INPUT_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT };
-        before_create.add_buffer(VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, ssbo_particles_);
         before_create.add_buffer(VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT, vbo_);
+
+        if (simulation_active_)
+            before_create.add_buffer(VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, ssbo_particles_);
 
         cmd.barrier(before_create);
 
@@ -528,6 +533,7 @@ namespace vhs
 
         if (draw_ui_)
         {
+            ImGui::Checkbox("Simulation Active", &simulation_active_);
             ImGui::SliderFloat("Hair Particle Separation", &hair_particle_separation_, 0.0f, 1.0f);
             ImGui::SliderFloat("Hair Particle Mass", &hair_particle_mass_, 0.01f, 1.0f);
             ImGui::SliderFloat("Hair Draw Radius", &hair_draw_radius_, 1e-4f, 1e-2f, "%.6f");

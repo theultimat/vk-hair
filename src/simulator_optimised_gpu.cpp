@@ -181,16 +181,14 @@ namespace vhs
         // Prepare the user interface draw commands.
         draw_imgui();
 
-        // Rotate the triangle and calculate the model view projection matrix.
-        const auto time = (float)glfwGetTime();
+        // Compute the model matrix for the hair root and view projection for rendering.
         const auto model = glm::mat4 { 1 };
         const auto mvp = camera_->projection() * camera_->view() * model;
 
-        // Prepare the two clears for the draw. We clear the colour attachment with a fade between blue and
-        // black while the depth buffer is cleared with all ones.
+        // Prepare the two clears for the draw - colour with the background and clear with nearest.
         const VkClearValue clears[] =
         {
-            { .color = { .float32 = { 0, 0, std::abs(std::sin(time)), 1 } } },
+            { .color = { .float32 = { 0.1f, 0.2f, 0.7f, 1.0f } } },
             { .depthStencil = { .depth = 1 } }
         };
 

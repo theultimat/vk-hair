@@ -128,6 +128,11 @@ namespace vhs
 
         uint32_t buf_total_size_;
 
+        glm::mat4 hair_root_transform_ = glm::mat4 { 1 };
+        glm::vec3 hair_root_position_ = glm::vec3 { 0 };
+        glm::vec3 hair_root_move_;
+        float hair_root_rot_move_;
+
         // Previous keyboard state.
         KeyboardState prev_key_state_;
 

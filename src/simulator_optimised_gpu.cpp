@@ -53,11 +53,12 @@ namespace vhs
         float hair_draw_radius;
         uint32_t hair_total_particles;
         uint32_t hair_particles_per_strand;
-        uint32_t padding[6];
+        uint32_t padding[24];
     };
 
     struct UpdatePushConstants
     {
+        alignas(64) glm::mat4 root_transform;
         alignas(16) glm::vec3 external_forces;
         float hair_particle_separation;
         float delta_time;
@@ -116,14 +117,39 @@ namespace vhs
     // Simulator interface functions.
     void SimulatorOptimisedGpu::process_input(const KeyboardState& ks)
     {
+        // Toggle user interface on space.
         if (ks.down(GLFW_KEY_SPACE) && prev_key_state_.up(GLFW_KEY_SPACE))
             draw_ui_ = !draw_ui_;
+
+        // IJKL move the hair root, UO rotate.
+        hair_root_move_ = glm::vec3 { 0 };
+        hair_root_rot_move_ = 0;
+
+        if (ks.down(GLFW_KEY_I))
+            hair_root_move_ += camera_->up();
+        else if (ks.down(GLFW_KEY_K))
+            hair_root_move_ -= camera_->up();
+        if (ks.down(GLFW_KEY_J))
+            hair_root_move_ -= camera_->right();
+        else if (ks.down(GLFW_KEY_L))
+            hair_root_move_ += camera_->right();
+
+        if (ks.down(GLFW_KEY_U))
+            hair_root_rot_move_ -= 1.0f;
+        else if (ks.down(GLFW_KEY_O))
+            hair_root_rot_move_ += 1.0f;
 
         prev_key_state_ = ks;
     }
 
     void SimulatorOptimisedGpu::update(float dt)
     {
+        // First update the hair root transform so we can send it to the GPU.
+        hair_root_position_ += hair_root_move_ * dt;
+        hair_root_transform_ = glm::translate(glm::mat4 { 1 }, hair_root_position_);
+        hair_root_transform_ = glm::rotate(hair_root_transform_, hair_root_rot_move_ * dt, glm::vec3 { 0, 1, 0 });
+        hair_root_transform_ = glm::translate(hair_root_transform_, hair_root_move_ * dt - hair_root_position_);
+
         // Wait for the update fence - this will be signalled once the previous update is complete.
         update_command_fence_.wait();
         update_command_fence_.reset();
@@ -632,6 +658,7 @@ namespace vhs
         // Fill in the push constants.
         UpdatePushConstants update_consts;
 
+        update_consts.root_transform = hair_root_transform_;
         update_consts.external_forces = gravity_ * hair_particle_mass_;
         update_consts.hair_particle_separation = hair_particle_separation_;
         update_consts.delta_time = dt;

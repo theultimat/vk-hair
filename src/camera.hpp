@@ -38,6 +38,7 @@ namespace vhs
         const glm::vec3& position() const { return position_; }
         const glm::vec3& front() const { return front_; }
         const glm::vec3& right() const { return right_; }
+        const glm::vec3& up() const { return up_; }
 
         float pitch() const { return pitch_; }
         float yaw() const { return yaw_; }

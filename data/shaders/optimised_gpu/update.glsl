@@ -9,6 +9,7 @@ layout (std430, set = 0, binding = VHS_PARTICLE_BUFFER_BINDING) buffer ssbo
 
 layout (push_constant) uniform ubo
 {
+    mat4 u_RootTransform;
     vec3 u_ExternalForces;
     float u_HairParticleSeparation;
     float u_DeltaTime;
@@ -52,7 +53,8 @@ void main()
 
     // Compute position update.
     // TODO Support moving root.
-    PositionBuffer[lid] = root ? originalPosition : (originalPosition + VelocityBuffer[lid] * u_DeltaTime + u_ExternalForces * u_DeltaTimeSq);
+    PositionBuffer[lid] = root ? (u_RootTransform * vec4(originalPosition, 1.0f)).xyz
+        : (originalPosition + VelocityBuffer[lid] * u_DeltaTime + u_ExternalForces * u_DeltaTimeSq);
 
     // Position before constraints of next particle.
     vec3 preConstraintPosition = PositionBuffer[nlid];

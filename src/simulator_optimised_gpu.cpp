@@ -462,9 +462,16 @@ namespace vhs
         hair_particle_separation_ = 0.08f;
         hair_draw_radius_ = 0.0005f;
         hair_particle_mass_ = 0.15f;
+        hair_strands_per_triangle_ = 9;
 
         // For each particle we need to store 3d position and velocity. Positions are stored first.
-        buf_total_size_ = hair_total_particles_ * 3 * 2;
+        buf_positions_size_ = hair_total_particles_ * 3;
+        buf_velocities_size_ = hair_total_particles_ * 3;
+
+        // Barycentric coordinates for hair strand interpolation are placed at the end of the buffer.
+        buf_barycentric_size_ = hair_strands_per_triangle_ * 3;
+
+        buf_total_size_ = buf_positions_size_ + buf_velocities_size_ + buf_barycentric_size_;
     }
 
     void SimulatorOptimisedGpu::initialise_particles()
@@ -485,6 +492,21 @@ namespace vhs
                 ssbo_hair_data_.at(i * hair_particles_per_strand_ + j + hair_total_particles_ * 1) = position.y;
                 ssbo_hair_data_.at(i * hair_particles_per_strand_ + j + hair_total_particles_ * 2) = position.z;
             }
+        }
+
+        // Place the barycentric coordinates at the end of the buffer.
+        uint32_t barycentric_offset = buf_total_size_ - buf_barycentric_size_;
+
+        for (uint32_t i = 0; i < hair_strands_per_triangle_; ++i)
+        {
+            glm::vec3 b { random_float(), random_float(), random_float() };
+            b /= (b.x + b.y + b.z);
+
+            VHS_TRACE(SIMULATOR, "{} {} {}", b.x, b.y, b.z);
+
+            ssbo_hair_data_.at(barycentric_offset + 3 * i + 0) = b.x;
+            ssbo_hair_data_.at(barycentric_offset + 3 * i + 1) = b.y;
+            ssbo_hair_data_.at(barycentric_offset + 3 * i + 2) = b.z;
         }
     }
 

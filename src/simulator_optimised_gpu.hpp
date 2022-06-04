@@ -120,6 +120,7 @@ namespace vhs
         uint32_t hair_number_of_strands_;
         uint32_t hair_particles_per_strand_;
         uint32_t hair_total_particles_;
+        uint32_t hair_strands_per_triangle_;
         uint32_t ftl_iterations_ = 5;
 
         float hair_particle_separation_;
@@ -130,6 +131,9 @@ namespace vhs
         std::vector<float> ssbo_hair_data_;
         std::vector<uint32_t> hair_indices_;
 
+        uint32_t buf_positions_size_;
+        uint32_t buf_velocities_size_;
+        uint32_t buf_barycentric_size_;
         uint32_t buf_total_size_;
 
         glm::mat4 hair_root_transform_ = glm::mat4 { 1 };

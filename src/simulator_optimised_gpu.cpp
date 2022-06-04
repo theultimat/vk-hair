@@ -77,7 +77,8 @@ namespace vhs
 
     // Constructor.
     SimulatorOptimisedGpu::SimulatorOptimisedGpu(GraphicsContext& context, Camera& camera) :
-        Simulator { context, camera }
+        Simulator { context, camera },
+        rng_ { VHS_RANDOM_SEED }
     {
         VHS_TRACE(SIMULATOR, "Switched to OptimisedGpu.");
 
@@ -678,5 +679,13 @@ namespace vhs
             update_groups++;
 
         cmd.dispatch(update_groups);
+    }
+
+
+    // Random number generators.
+    float SimulatorOptimisedGpu::random_float(float min, float max)
+    {
+        std::uniform_real_distribution<float> dist { min, max };
+        return dist(rng_);
     }
 }

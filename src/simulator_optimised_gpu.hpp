@@ -1,6 +1,7 @@
 #ifndef VHS_SIMULATOR_OPTIMISED_GPU_HPP
 #define VHS_SIMULATOR_OPTIMISED_GPU_HPP
 
+#include <random>
 #include <vector>
 
 #include "command_pool.hpp"
@@ -77,6 +78,9 @@ namespace vhs
         // Draw the ImGui components.
         void draw_imgui();
 
+        // Generate a random float in the specified range.
+        float random_float(float min = 0, float max = 1);
+
         // Depth buffer.
         Image depth_image_;
         ImageView depth_image_view_;
@@ -141,6 +145,9 @@ namespace vhs
 
         // Whether the simualtion is currently active or paused.
         bool simulation_active_ = true;
+
+        // RNG.
+        std::mt19937 rng_;
     };
 }
 

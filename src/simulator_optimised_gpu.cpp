@@ -502,8 +502,6 @@ namespace vhs
             glm::vec3 b { random_float(), random_float(), random_float() };
             b /= (b.x + b.y + b.z);
 
-            VHS_TRACE(SIMULATOR, "{} {} {}", b.x, b.y, b.z);
-
             ssbo_hair_data_.at(barycentric_offset + 3 * i + 0) = b.x;
             ssbo_hair_data_.at(barycentric_offset + 3 * i + 1) = b.y;
             ssbo_hair_data_.at(barycentric_offset + 3 * i + 2) = b.z;

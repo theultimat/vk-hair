@@ -41,7 +41,7 @@ namespace vhs
                 const auto now_ms = std::chrono::duration<double, std::milli> { now - start_time_ }.count();
                 const auto thread = "main";
 
-                const auto message = fmt::format(FMT_STRING("[{} {} {}] "), tag_, now_ms, thread)
+                const auto message = fmt::format(FMT_STRING("[{} {:.3f} {}] "), tag_, now_ms * 0.001, thread)
                     + fmt::format(std::forward<Fmt>(fmt), std::forward<Args>(args)...) + "\n";
 
                 std::cout << message;

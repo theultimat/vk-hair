@@ -52,7 +52,6 @@ void main()
     vec3 originalPosition = PositionBuffer[lid];
 
     // Compute position update.
-    // TODO Support moving root.
     PositionBuffer[lid] = root ? (u_RootTransform * vec4(originalPosition, 1.0f)).xyz
         : (originalPosition + VelocityBuffer[lid] * u_DeltaTime + u_ExternalForces * u_DeltaTimeSq);
 
@@ -87,9 +86,6 @@ void main()
 
     // Apply correction if required.
     VelocityBuffer[lid] += correction * u_DampingFactor;
-
-    if (any(isnan(VelocityBuffer[lid])) || any(isinf(VelocityBuffer[lid])))
-        VelocityBuffer[lid] = vec3(0);
 
     // Write results back to global memory.
     if (valid)

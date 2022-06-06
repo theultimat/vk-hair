@@ -126,7 +126,7 @@ namespace vhs
         float hair_particle_separation_;
         float hair_draw_radius_;
         float hair_particle_mass_;
-        float damping_factor_ = -0.9f;
+        float damping_factor_ = -0.56f;
 
         std::vector<float> ssbo_hair_data_;
         std::vector<uint32_t> hair_indices_;

@@ -468,10 +468,13 @@ namespace vhs
         buf_positions_size_ = hair_total_particles_ * 3;
         buf_velocities_size_ = hair_total_particles_ * 3;
 
+        // Store the vertex indices of the triangles that make up the root for interpolation.
+        buf_tri_indices_size_ = hair_root_indices_.size();
+
         // Barycentric coordinates for hair strand interpolation are placed at the end of the buffer.
         buf_barycentric_size_ = hair_strands_per_triangle_ * 3;
 
-        buf_total_size_ = buf_positions_size_ + buf_velocities_size_ + buf_barycentric_size_;
+        buf_total_size_ = buf_positions_size_ + buf_velocities_size_ + buf_tri_indices_size_ + buf_barycentric_size_;
     }
 
     void SimulatorOptimisedGpu::initialise_particles()
@@ -494,8 +497,15 @@ namespace vhs
             }
         }
 
+        // Store the root triangle indices after the velocities. This could be stored in fewer bytes as we're expanding a 16b index
+        // int a 32b float but it's easier to keep everything in the same buffer and we aren't short of memory so eh.
+        const auto tri_indices_offset = buf_positions_size_ + buf_velocities_size_;
+
+        for (uint32_t i = 0; i < buf_tri_indices_size_; ++i)
+            ssbo_hair_data_.at(tri_indices_offset + i) = hair_root_indices_.at(i);
+
         // Place the barycentric coordinates at the end of the buffer.
-        uint32_t barycentric_offset = buf_total_size_ - buf_barycentric_size_;
+        const auto barycentric_offset = buf_total_size_ - buf_barycentric_size_;
 
         for (uint32_t i = 0; i < hair_strands_per_triangle_; ++i)
         {

@@ -133,6 +133,7 @@ namespace vhs
 
         uint32_t buf_positions_size_;
         uint32_t buf_velocities_size_;
+        uint32_t buf_tri_indices_size_;
         uint32_t buf_barycentric_size_;
         uint32_t buf_total_size_;
 

@@ -585,6 +585,7 @@ namespace vhs
             ImGui::SliderFloat("Hair Particle Mass", &hair_particle_mass_, 0.01f, 1.0f);
             ImGui::SliderFloat("Hair Draw Radius", &hair_draw_radius_, 1e-4f, 1e-2f, "%.6f");
             ImGui::SliderFloat("Damping Factor", &damping_factor_, -1.0f, 0.0f);
+            ImGui::Checkbox("Gravity Enabled", &gravity_enabled_);
             ImGui::SliderFloat3("Gravity", reinterpret_cast<float*>(&gravity_), -15.0f, 15.0f, "%.2f");
             ImGui::SliderInt("FTL Iterations", reinterpret_cast<int*>(&ftl_iterations_), 2, 8);
         }
@@ -679,8 +680,10 @@ namespace vhs
         // Fill in the push constants.
         UpdatePushConstants update_consts;
 
+        const auto gravity = gravity_enabled_ ? gravity_ : glm::vec3 { 0 };
+
         update_consts.root_transform = hair_root_transform_;
-        update_consts.external_forces = gravity_ * hair_particle_mass_;
+        update_consts.external_forces = gravity * hair_particle_mass_;
         update_consts.hair_particle_separation = hair_particle_separation_;
         update_consts.delta_time = dt;
         update_consts.delta_time_sq = dt * dt;

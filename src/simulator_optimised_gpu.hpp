@@ -147,8 +147,9 @@ namespace vhs
         // Whether to draw the user interface.
         bool draw_ui_ = false;
 
-        // Whether the simualtion is currently active or paused.
+        // Extra flags controlled via the UI.
         bool simulation_active_ = true;
+        bool gravity_enabled_ = true;
 
         // RNG.
         std::mt19937 rng_;

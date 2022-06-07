@@ -370,7 +370,7 @@ namespace vhs
     // Buffer management.
     void SimulatorOptimisedGpu::create_vertex_buffer()
     {
-        std::vector<glm::vec3> vertices(2 * hair_total_particles_);
+        std::vector<glm::vec3> vertices(2 * hair_total_particles_ * hair_strands_per_triangle_);
 
         // Write the initial vertices to the buffer. This matches what happens in the create vertices compute shader.
         for (uint32_t i = 0; i < hair_number_of_strands_; ++i)
@@ -673,10 +673,15 @@ namespace vhs
 
         cmd.push_constants(create_vertices_pipeline_, VK_SHADER_STAGE_COMPUTE_BIT, &create_vertices_consts, sizeof create_vertices_consts);
 
-        // Submit the kernel with the appropriate number of groups.
-        uint32_t create_vertices_groups = hair_total_particles_ / VHS_COMPUTE_LOCAL_SIZE;
+        // We want to keep strands from the same triangle in the same group, so try and pack as many as possible into our workgroup
+        // size. This could be done in a more optimal manner but keep it simple for now.
+        const auto particles_per_tri = hair_strands_per_triangle_ * hair_particles_per_strand_;
+        const auto num_triangles = hair_root_indices_.size() / 3;
+        const auto total_compute_size = num_triangles * particles_per_tri;
 
-        if (hair_total_particles_ % VHS_COMPUTE_LOCAL_SIZE)
+        uint32_t create_vertices_groups = total_compute_size / VHS_COMPUTE_LOCAL_SIZE;
+
+        if (total_compute_size % VHS_COMPUTE_LOCAL_SIZE)
             create_vertices_groups++;
 
         cmd.dispatch(create_vertices_groups);

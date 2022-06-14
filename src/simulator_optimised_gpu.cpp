@@ -53,7 +53,9 @@ namespace vhs
         float hair_draw_radius;
         uint32_t hair_total_particles;
         uint32_t hair_particles_per_strand;
-        uint32_t padding[24];
+        uint32_t hair_strands_per_triangle;
+        uint32_t triangles_per_group;
+        uint32_t padding[22];
     };
 
     struct UpdatePushConstants
@@ -370,48 +372,119 @@ namespace vhs
     // Buffer management.
     void SimulatorOptimisedGpu::create_vertex_buffer()
     {
-        std::vector<glm::vec3> vertices(2 * hair_total_particles_ * hair_strands_per_triangle_);
+        const auto particles_per_tri = hair_strands_per_triangle_ * hair_particles_per_strand_;
+        const auto tris_per_group = VHS_COMPUTE_LOCAL_SIZE / particles_per_tri;
+        const auto particles_per_group = tris_per_group * particles_per_tri;
 
-        // Write the initial vertices to the buffer. This matches what happens in the create vertices compute shader.
-        for (uint32_t i = 0; i < hair_number_of_strands_; ++i)
+        const auto num_triangles = (uint32_t)hair_root_indices_.size() / 3;
+        const auto total_compute_size = num_triangles * particles_per_tri;
+
+        uint32_t create_vertices_groups = total_compute_size / particles_per_group;
+
+        if (total_compute_size % particles_per_group)
+            create_vertices_groups++;
+
+        std::vector<glm::vec3> vertices(total_compute_size * 2, { -1, -1, -1 });
+
+        for (uint32_t i = 0; i < create_vertices_groups; ++i)
         {
-            for (uint32_t j = 0; j < hair_particles_per_strand_; ++j)
+            std::vector<glm::vec3> barycentric_coords(VHS_COMPUTE_LOCAL_SIZE);
+            std::vector<uint32_t> hair_root_indices(VHS_COMPUTE_LOCAL_SIZE);
+            std::vector<glm::vec3> positions(VHS_COMPUTE_LOCAL_SIZE);
+
+            for (uint32_t j = 0; j < VHS_COMPUTE_LOCAL_SIZE; ++j)
             {
-                const auto gid = i * hair_particles_per_strand_ + j;
-                const auto end = (gid % hair_total_particles_) == (hair_total_particles_ - 1);
+                const auto num_indices = tris_per_group * 3;
 
-                // Read particle position from the input buffer.
-                glm::vec3 position;
+                const auto lid = j;
+                const auto gid = i * num_indices + lid;
 
-                position.x = ssbo_hair_data_.at(gid + hair_total_particles_ * 0);
-                position.y = ssbo_hair_data_.at(gid + hair_total_particles_ * 1);
-                position.z = ssbo_hair_data_.at(gid + hair_total_particles_ * 2);
-
-                // Calculate vector perpendicular to camera and hair direction.
-                glm::vec3 v0, v1;
-
-                if (end)
+                // Load the barycentric coordinates.
+                if (lid < hair_strands_per_triangle_)
                 {
-                    v0.x = ssbo_hair_data_.at(gid - 1 + hair_total_particles_ * 0);
-                    v0.y = ssbo_hair_data_.at(gid - 1 + hair_total_particles_ * 1);
-                    v0.z = ssbo_hair_data_.at(gid - 1 + hair_total_particles_ * 2);
+                    const auto offset = hair_total_particles_ * 3 * 2 + num_triangles * 3;
 
-                    v1 = position;
+                    barycentric_coords.at(lid).x = ssbo_hair_data_.at(offset + 3 * lid + 0);
+                    barycentric_coords.at(lid).y = ssbo_hair_data_.at(offset + 3 * lid + 1);
+                    barycentric_coords.at(lid).z = ssbo_hair_data_.at(offset + 3 * lid + 2);
                 }
-                else
+
+                // Load root vertex indices.
+                if (lid < num_indices)
                 {
-                    v0 = position;
+                    const auto offset = hair_total_particles_ * 3 * 2;
 
-                    v1.x = ssbo_hair_data_.at(gid + 1 + hair_total_particles_ * 0);
-                    v1.y = ssbo_hair_data_.at(gid + 1 + hair_total_particles_ * 1);
-                    v1.z = ssbo_hair_data_.at(gid + 1 + hair_total_particles_ * 2);
+                    hair_root_indices.at(lid) = ssbo_hair_data_.at(offset + gid);
                 }
+
+            }
+
+            for (uint32_t j = 0; j < VHS_COMPUTE_LOCAL_SIZE; ++j)
+            {
+                const auto lid = j;
+
+                // Load initial particle positions.
+                const auto num_initial_particles = hair_particles_per_strand_ * tris_per_group * 3;
+
+                if (lid < num_initial_particles)
+                {
+                    const auto triangle_index = lid / (hair_particles_per_strand_ * 3);
+                    const auto strand_index = (lid / hair_particles_per_strand_) % 3;
+                    const auto particle_index = lid % hair_particles_per_strand_;
+
+                    const auto index_offset = hair_root_indices.at(triangle_index * 3 + strand_index) * hair_particles_per_strand_;
+                    const auto particle_offset = index_offset + particle_index;
+
+                    positions.at(lid).x = ssbo_hair_data_.at(particle_offset + hair_total_particles_ * 0);
+                    positions.at(lid).y = ssbo_hair_data_.at(particle_offset + hair_total_particles_ * 1);
+                    positions.at(lid).z = ssbo_hair_data_.at(particle_offset + hair_total_particles_ * 2);
+                }
+            }
+
+            for (uint32_t j = 0; j < VHS_COMPUTE_LOCAL_SIZE; ++j)
+            {
+                const auto lid = j;
+                const auto gid = i * tris_per_group * hair_particles_per_strand_ * hair_strands_per_triangle_ + lid;
+
+                const auto num_initial_particles = hair_particles_per_strand_ * tris_per_group * 3;
+
+                if (lid >= num_initial_particles)
+                    continue;
+
+                // Load original vertices for interpolation.
+                const auto triangle_index = lid / (hair_particles_per_strand_ * 3);
+                const auto particle_index = lid % hair_particles_per_strand_;
+
+                const auto b0 = positions.at(triangle_index * hair_particles_per_strand_ * 3 + hair_particles_per_strand_ * 0 + particle_index);
+                const auto b1 = positions.at(triangle_index * hair_particles_per_strand_ * 3 + hair_particles_per_strand_ * 1 + particle_index);
+                const auto b2 = positions.at(triangle_index * hair_particles_per_strand_ * 3 + hair_particles_per_strand_ * 2 + particle_index);
+
+                // Load the barycentric coordinates and compute new interpolated particle position.
+                const auto b = barycentric_coords.at(lid / hair_particles_per_strand_);//% hair_strands_per_triangle_);
+                const auto p = b0 * b.x + b1 * b.y + b2 * b.z;
+
+                // Compute vector perpendicular to the camera and hair direction.
+                const bool valid = lid < (tris_per_group * hair_particles_per_strand_ * hair_strands_per_triangle_);
+                const auto end = particle_index == (hair_particles_per_strand_ - 1);
+
+                const auto i0 = end ? (particle_index - 1) : particle_index;
+                const auto i1 = end ? particle_index : (particle_index + 1);
+
+                const auto v0 = positions.at(triangle_index * hair_particles_per_strand_ * 3 + i0);
+                const auto v1 = positions.at(triangle_index * hair_particles_per_strand_ * 3 + i1);
 
                 const auto perp = hair_draw_radius_ * glm::normalize(glm::cross(v1 - v0, camera_->front()));
 
                 // Create the two vertices.
-                vertices.at(2 * gid + 0) = position - perp;
-                vertices.at(2 * gid + 1) = position + perp;
+                const auto p0 = p - perp;
+                const auto p1 = p + perp;
+
+                // Write vertex if valid.
+                if (valid)
+                {
+                    vertices.at(2 * gid + 0) = p0;
+                    vertices.at(2 * gid + 1) = p1;
+                }
             }
         }
 
@@ -423,11 +496,12 @@ namespace vhs
     {
         // All hairs are rendered as triangle strips using a single index buffer. We split up the indices for each
         // hair by using the primitive restart.
-        hair_indices_.reserve(2 * hair_total_particles_ + hair_number_of_strands_);
+        const uint32_t num_strands = hair_strands_per_triangle_ * hair_root_indices_.size() / 3;
+        hair_indices_.reserve(2 * num_strands * hair_particles_per_strand_ + num_strands);
 
         uint32_t index = 0;
 
-        for (uint32_t i = 0; i < hair_number_of_strands_; ++i)
+        for (uint32_t i = 0; i < num_strands; ++i)
         {
             // Add the indices for the strand. Each particle is expanded into two vertices.
             for (uint32_t j = 0; j < hair_particles_per_strand_; ++j)
@@ -660,6 +734,20 @@ namespace vhs
 
     void SimulatorOptimisedGpu::record_create_vertices_commands(CommandBuffer& cmd)
     {
+        // We want to keep strands from the same triangle in the same group, so try and pack as many as possible into our workgroup
+        // size. This could be done in a more optimal manner but keep it simple for now.
+        const auto particles_per_tri = hair_strands_per_triangle_ * hair_particles_per_strand_;
+        const auto tris_per_group = VHS_COMPUTE_LOCAL_SIZE / particles_per_tri;
+        const auto particles_per_group = tris_per_group * particles_per_tri;
+
+        const auto num_triangles = hair_root_indices_.size() / 3;
+        const auto total_compute_size = num_triangles * particles_per_tri;
+
+        uint32_t create_vertices_groups = total_compute_size / particles_per_group;
+
+        if (total_compute_size % particles_per_group)
+            create_vertices_groups++;
+
         // Bind the vertex creation pipeline.
         cmd.bind_pipeline(create_vertices_pipeline_);
 
@@ -670,20 +758,12 @@ namespace vhs
         create_vertices_consts.hair_draw_radius = hair_draw_radius_;
         create_vertices_consts.hair_total_particles = hair_total_particles_;
         create_vertices_consts.hair_particles_per_strand = hair_particles_per_strand_;
+        create_vertices_consts.hair_strands_per_triangle = hair_strands_per_triangle_;
+        create_vertices_consts.triangles_per_group = tris_per_group;
 
         cmd.push_constants(create_vertices_pipeline_, VK_SHADER_STAGE_COMPUTE_BIT, &create_vertices_consts, sizeof create_vertices_consts);
 
-        // We want to keep strands from the same triangle in the same group, so try and pack as many as possible into our workgroup
-        // size. This could be done in a more optimal manner but keep it simple for now.
-        const auto particles_per_tri = hair_strands_per_triangle_ * hair_particles_per_strand_;
-        const auto num_triangles = hair_root_indices_.size() / 3;
-        const auto total_compute_size = num_triangles * particles_per_tri;
-
-        uint32_t create_vertices_groups = total_compute_size / VHS_COMPUTE_LOCAL_SIZE;
-
-        if (total_compute_size % VHS_COMPUTE_LOCAL_SIZE)
-            create_vertices_groups++;
-
+        // Dispatch with the calculated size.
         cmd.dispatch(create_vertices_groups);
     }
 

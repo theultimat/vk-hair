@@ -537,7 +537,7 @@ namespace vhs
         hair_draw_radius_ = 0.0005f;
         hair_particle_mass_ = 0.15f;
         hair_strands_per_triangle_ = 9;
-        hair_smooth_factor_ = 2;
+        hair_smooth_factor_ = 1;
 
         // For each particle we need to store 3d position and velocity. Positions are stored first.
         buf_positions_size_ = hair_total_particles_ * 3;
@@ -669,7 +669,7 @@ namespace vhs
             ImGui::SliderFloat("Hair Particle Separation", &hair_particle_separation_, 0.0f, 1.0f);
             ImGui::SliderFloat("Hair Particle Mass", &hair_particle_mass_, 0.01f, 1.0f);
             ImGui::SliderFloat("Hair Draw Radius", &hair_draw_radius_, 1e-4f, 1e-2f, "%.6f");
-            ImGui::SliderInt("Hair Smooth Factor", reinterpret_cast<int*>(&hair_smooth_factor_), 1, 8);
+            ImGui::SliderInt("Hair Smooth Factor", reinterpret_cast<int*>(&hair_smooth_factor_), 1, VHS_MAX_HAIR_SMOOTH_FACTOR);
             ImGui::SliderFloat("Damping Factor", &damping_factor_, -1.0f, 0.0f);
             ImGui::Checkbox("Gravity Enabled", &gravity_enabled_);
             ImGui::SliderFloat3("Gravity", reinterpret_cast<float*>(&gravity_), -15.0f, 15.0f, "%.2f");

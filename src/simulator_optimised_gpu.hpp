@@ -121,6 +121,7 @@ namespace vhs
         uint32_t hair_particles_per_strand_;
         uint32_t hair_total_particles_;
         uint32_t hair_strands_per_triangle_;
+        uint32_t hair_smooth_factor_;
         uint32_t ftl_iterations_ = 5;
 
         float hair_particle_separation_;

@@ -60,6 +60,7 @@ namespace vhs
         // Buffers.
         void create_vertex_buffer();
         void create_index_buffer();
+        void update_index_buffer(bool copy);
         void create_particle_buffer();
 
         // Hair management.
@@ -131,6 +132,7 @@ namespace vhs
 
         std::vector<float> ssbo_hair_data_;
         std::vector<uint32_t> hair_indices_;
+        uint32_t num_active_indices_ = 0;
 
         uint32_t buf_positions_size_;
         uint32_t buf_velocities_size_;

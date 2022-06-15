@@ -147,6 +147,9 @@ namespace vhs
 
     void SimulatorOptimisedGpu::update(float dt)
     {
+        // Update index buffer if some state has changed.
+        update_index_buffer(true);
+
         // First update the hair root transform so we can send it to the GPU.
         hair_root_position_ += hair_root_move_ * dt;
         hair_root_transform_ = glm::translate(glm::mat4 { 1 }, hair_root_position_);
@@ -236,7 +239,7 @@ namespace vhs
         cmd.push_constants(draw_pipeline_, VK_SHADER_STAGE_VERTEX_BIT, &mvp, sizeof mvp);
         cmd.bind_vertex_buffer(vbo_);
         cmd.bind_index_buffer(ebo_);
-        cmd.draw_indexed(hair_indices_.size());
+        cmd.draw_indexed(num_active_indices_);
 
         // Shove the ImGui rendering into the end of the render pass.
         ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), frame.command_buffers[0]);
@@ -372,7 +375,7 @@ namespace vhs
     // Buffer management.
     void SimulatorOptimisedGpu::create_vertex_buffer()
     {
-        const auto particles_per_tri = hair_strands_per_triangle_ * hair_particles_per_strand_;
+        const auto particles_per_tri = hair_strands_per_triangle_ * hair_particles_per_strand_ * VHS_MAX_HAIR_SMOOTH_FACTOR;
         const auto tris_per_group = VHS_COMPUTE_LOCAL_SIZE / particles_per_tri;
         const auto particles_per_group = tris_per_group * particles_per_tri;
 
@@ -384,7 +387,7 @@ namespace vhs
         if (total_compute_size % particles_per_group)
             create_vertices_groups++;
 
-        std::vector<glm::vec3> vertices(total_compute_size * 2, { -1, -1, -1 });
+        std::vector<glm::vec3> vertices(total_compute_size * 2);
 
         for (uint32_t i = 0; i < create_vertices_groups; ++i)
         {
@@ -497,24 +500,50 @@ namespace vhs
         // All hairs are rendered as triangle strips using a single index buffer. We split up the indices for each
         // hair by using the primitive restart.
         const uint32_t num_strands = hair_strands_per_triangle_ * hair_root_indices_.size() / 3;
-        hair_indices_.reserve(2 * num_strands * hair_particles_per_strand_ + num_strands);
+        hair_indices_.resize(2 * num_strands * hair_particles_per_strand_ * VHS_MAX_HAIR_SMOOTH_FACTOR + num_strands);
+
+        update_index_buffer(false);
+
+        ebo_ = context_->create_index_buffer("Indices", hair_indices_.data(), hair_indices_.size());
+    }
+
+    void SimulatorOptimisedGpu::update_index_buffer(bool copy)
+    {
+        // Recalculate the indices if one of the params have changed.
+        const uint32_t num_strands = hair_strands_per_triangle_ * hair_root_indices_.size() / 3;
+
+        // If nothing has changed then don't do an update.
+        const uint32_t new_num_indices = num_strands * hair_particles_per_strand_ * hair_smooth_factor_ * 2 + num_strands;
+        if (num_active_indices_ == new_num_indices)
+            return;
 
         uint32_t index = 0;
+        uint32_t wr_idx = 0;
 
         for (uint32_t i = 0; i < num_strands; ++i)
         {
             // Add the indices for the strand. Each particle is expanded into two vertices.
-            for (uint32_t j = 0; j < hair_particles_per_strand_; ++j)
+            for (uint32_t j = 0; j < hair_particles_per_strand_ * hair_smooth_factor_; ++j)
             {
-                hair_indices_.push_back(index++);
-                hair_indices_.push_back(index++);
+                hair_indices_.at(wr_idx++) = index++;
+                hair_indices_.at(wr_idx++) = index++;
             }
 
             // Add the primitive restart.
-            hair_indices_.push_back(~0);
+            hair_indices_.at(wr_idx++) = ~0u;
         }
 
-        ebo_ = context_->create_index_buffer("Indices", hair_indices_.data(), hair_indices_.size());
+        num_active_indices_ = wr_idx;
+
+        // If enabled copy the new data to the index buffer on the device.
+        if (copy)
+        {
+            VHS_TRACE(SIMULATOR, "Writing new indices to GPU.", num_active_indices_);
+
+            auto staging_buffer = context_->create_staging_buffer("IndexUpdateStaging", sizeof(uint32_t) * hair_indices_.size());
+            staging_buffer.write(hair_indices_.data(), num_active_indices_);
+            context_->copy_buffer(ebo_, staging_buffer);
+        }
     }
 
     void SimulatorOptimisedGpu::create_particle_buffer()

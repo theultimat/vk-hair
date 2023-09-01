@@ -60,7 +60,7 @@ namespace vhs
         // Buffers.
         void create_vertex_buffer();
         void create_index_buffer();
-        void update_index_buffer(bool copy);
+        bool update_index_buffer(bool copy);
         void create_particle_buffer();
 
         // Hair management.

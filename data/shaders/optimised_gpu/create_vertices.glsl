@@ -20,11 +20,22 @@ layout (push_constant) uniform ubo
     uint u_HairParticlesPerStrand;
     uint u_HairStrandsPerTriangle;
     uint u_TrianglesPerGroup;
+    uint u_HairSmoothFactor;
 };
 
 shared vec3 PositionBuffer[VHS_COMPUTE_LOCAL_SIZE];
 shared vec3 BarycentricCoords[VHS_COMPUTE_LOCAL_SIZE];
 shared uint HairRootIndexBuffer[VHS_COMPUTE_LOCAL_SIZE];
+
+vec3 cubicHermite(vec3 A, vec3 B, vec3 C, vec3 D, float t)
+{
+    vec3 a = -0.5f * A + 1.5f * B - 1.5f * C + 0.5f * D;
+    vec3 b = A - 2.5f * B + 2.0f * C - 0.5f * D;
+    vec3 c = -0.5f * A + C * 0.5f;
+    vec3 d = B;
+
+    return a * t * t * t + b * t * t + c * t + d;
+}
 
 void main()
 {
@@ -86,24 +97,44 @@ void main()
     }
 
     // Compute the new global ID for the vertices.
-    gid = gl_WorkGroupID.x * u_TrianglesPerGroup * u_HairParticlesPerStrand * u_HairStrandsPerTriangle + lid;
+    gid = gl_WorkGroupID.x * u_TrianglesPerGroup * u_HairParticlesPerStrand * u_HairStrandsPerTriangle * u_HairSmoothFactor + lid;
 
     barrier();
 
     // Find the indices of the original particle for the interpolation step and load them from shared memory.
-    uint triangleIndex = lid / (u_HairParticlesPerStrand * 3);
-    uint particleIndex = lid % u_HairParticlesPerStrand;
+    uint triangleIndex = lid / (u_HairParticlesPerStrand * u_HairSmoothFactor * u_HairStrandsPerTriangle);
+    uint interpParticleIndex = lid % (u_HairParticlesPerStrand * u_HairSmoothFactor);
+    uint particleIndex = interpParticleIndex / u_HairSmoothFactor;
 
-    vec3 b0 = PositionBuffer[triangleIndex * u_HairParticlesPerStrand * 3 + u_HairParticlesPerStrand * 0 + particleIndex];
-    vec3 b1 = PositionBuffer[triangleIndex * u_HairParticlesPerStrand * 3 + u_HairParticlesPerStrand * 1 + particleIndex];
-    vec3 b2 = PositionBuffer[triangleIndex * u_HairParticlesPerStrand * 3 + u_HairParticlesPerStrand * 2 + particleIndex];
+    // Calculate indices for interpolation along the strand.
+    uint indexB = particleIndex;
+    uint indexA = (indexB == 0) ? 0 : (indexB - 1);
+    uint indexC = min(indexB + 1, u_HairParticlesPerStrand - 1);
+    uint indexD = min(indexC + 1, u_HairParticlesPerStrand - 1);
 
-    // Load the barycentric coordinate and compute the new interpolated particle position.
-    vec3 b = BarycentricCoords[lid / u_HairParticlesPerStrand];
-    vec3 p = b0 * b.x + b1 * b.y + b2 * b.z;
+    uint bi0 = triangleIndex * u_HairParticlesPerStrand * 3 + u_HairParticlesPerStrand * 0;
+    uint bi1 = triangleIndex * u_HairParticlesPerStrand * 3 + u_HairParticlesPerStrand * 1;
+    uint bi2 = triangleIndex * u_HairParticlesPerStrand * 3 + u_HairParticlesPerStrand * 2;
+
+    // vec3 b0 = PositionBuffer[triangleIndex * u_HairParticlesPerStrand * 3 + u_HairParticlesPerStrand * 0 + particleIndex];
+    // vec3 b1 = PositionBuffer[triangleIndex * u_HairParticlesPerStrand * 3 + u_HairParticlesPerStrand * 1 + particleIndex];
+    // vec3 b2 = PositionBuffer[triangleIndex * u_HairParticlesPerStrand * 3 + u_HairParticlesPerStrand * 2 + particleIndex];
+
+    // Load the barycentric coordinate and compute the new interpolated particle base positions.
+    vec3 b = BarycentricCoords[lid / (u_HairParticlesPerStrand * u_HairSmoothFactor)];
+
+    vec3 A = b.x * PositionBuffer[bi0 + indexA] + b.y * PositionBuffer[bi1 + indexA] + b.z * PositionBuffer[bi2 + indexA];
+    vec3 B = b.x * PositionBuffer[bi0 + indexB] + b.y * PositionBuffer[bi1 + indexB] + b.z * PositionBuffer[bi2 + indexB];
+    vec3 C = b.x * PositionBuffer[bi0 + indexC] + b.y * PositionBuffer[bi1 + indexC] + b.z * PositionBuffer[bi2 + indexC];
+    vec3 D = b.x * PositionBuffer[bi0 + indexD] + b.y * PositionBuffer[bi1 + indexD] + b.z * PositionBuffer[bi2 + indexD];
+
+    float t = interpParticleIndex / float(u_HairParticlesPerStrand * u_HairSmoothFactor);
+    vec3 p = cubicHermite(A, B, C, D, t);
+
+    //vec3 p = b0 * b.x + b1 * b.y + b2 * b.z;
 
     // Compute the vector perpendicular to the camera and hair direction.
-    bool valid = lid < (u_TrianglesPerGroup * u_HairParticlesPerStrand * u_HairStrandsPerTriangle);
+    bool valid = lid < (u_TrianglesPerGroup * u_HairParticlesPerStrand * u_HairStrandsPerTriangle * u_HairSmoothFactor);
     bool end = particleIndex == (u_HairParticlesPerStrand - 1);
 
     uint i0 = end ? (particleIndex - 1) : particleIndex;

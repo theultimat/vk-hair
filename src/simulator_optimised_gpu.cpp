@@ -55,7 +55,8 @@ namespace vhs
         uint32_t hair_particles_per_strand;
         uint32_t hair_strands_per_triangle;
         uint32_t triangles_per_group;
-        uint32_t padding[22];
+        uint32_t hair_smooth_factor;
+        uint32_t padding[21];
     };
 
     struct UpdatePushConstants
@@ -148,7 +149,7 @@ namespace vhs
     void SimulatorOptimisedGpu::update(float dt)
     {
         // Update index buffer if some state has changed.
-        update_index_buffer(true);
+        const auto updated_ebo = update_index_buffer(true);
 
         // First update the hair root transform so we can send it to the GPU.
         hair_root_position_ += hair_root_move_ * dt;
@@ -195,8 +196,17 @@ namespace vhs
         record_create_vertices_commands(cmd);
 
         // Add another barrier for the next draw after we've written the vertex buffer.
-        PipelineBarrier create_to_draw { VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT };
+        VkPipelineStageFlags src_flags = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+
+        if (updated_ebo)
+            src_flags |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+
+        PipelineBarrier create_to_draw { src_flags, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT };
         create_to_draw.add_buffer(VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT, vbo_);
+
+        // If the indices have been updated we need to add a barrier to catch the transfer before we perform the draw.
+        if (updated_ebo)
+            create_to_draw.add_buffer(VK_ACCESS_MEMORY_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT, ebo_);
 
         cmd.barrier(create_to_draw);
 
@@ -507,7 +517,7 @@ namespace vhs
         ebo_ = context_->create_index_buffer("Indices", hair_indices_.data(), hair_indices_.size());
     }
 
-    void SimulatorOptimisedGpu::update_index_buffer(bool copy)
+    bool SimulatorOptimisedGpu::update_index_buffer(bool copy)
     {
         // Recalculate the indices if one of the params have changed.
         const uint32_t num_strands = hair_strands_per_triangle_ * hair_root_indices_.size() / 3;
@@ -515,7 +525,7 @@ namespace vhs
         // If nothing has changed then don't do an update.
         const uint32_t new_num_indices = num_strands * hair_particles_per_strand_ * hair_smooth_factor_ * 2 + num_strands;
         if (num_active_indices_ == new_num_indices)
-            return;
+            return false;
 
         uint32_t index = 0;
         uint32_t wr_idx = 0;
@@ -544,6 +554,8 @@ namespace vhs
             staging_buffer.write(hair_indices_.data(), num_active_indices_);
             context_->copy_buffer(ebo_, staging_buffer);
         }
+
+        return copy;
     }
 
     void SimulatorOptimisedGpu::create_particle_buffer()
@@ -767,7 +779,7 @@ namespace vhs
     {
         // We want to keep strands from the same triangle in the same group, so try and pack as many as possible into our workgroup
         // size. This could be done in a more optimal manner but keep it simple for now.
-        const auto particles_per_tri = hair_strands_per_triangle_ * hair_particles_per_strand_;
+        const auto particles_per_tri = hair_strands_per_triangle_ * hair_particles_per_strand_ * hair_smooth_factor_;
         const auto tris_per_group = VHS_COMPUTE_LOCAL_SIZE / particles_per_tri;
         const auto particles_per_group = tris_per_group * particles_per_tri;
 
@@ -791,6 +803,7 @@ namespace vhs
         create_vertices_consts.hair_particles_per_strand = hair_particles_per_strand_;
         create_vertices_consts.hair_strands_per_triangle = hair_strands_per_triangle_;
         create_vertices_consts.triangles_per_group = tris_per_group;
+        create_vertices_consts.hair_smooth_factor = hair_smooth_factor_;
 
         cmd.push_constants(create_vertices_pipeline_, VK_SHADER_STAGE_COMPUTE_BIT, &create_vertices_consts, sizeof create_vertices_consts);
 
